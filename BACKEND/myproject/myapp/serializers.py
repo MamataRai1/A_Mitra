@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework import generics 
 from .models import Profile, Service, Booking, Review, Report
 
 class ProfileSerializer(serializers.ModelSerializer):
