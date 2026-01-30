@@ -1,13 +1,14 @@
 import React from 'react';
-import Navbar from './components/Navbar';
-import Home from './pages/Home';
+ 
+// import Home from './pages/Home';  // We don't need Home now
+import ClientDashboard from './pages/users/ClientDashboard';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <Navbar />
-      <Home />
+       
+      <ClientDashboard />
     </div>
   );
 }

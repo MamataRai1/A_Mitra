@@ -1,12 +1,13 @@
 import React from 'react';
 
-function ServiceCard({ service }) {
+export default function ServiceCard({ service }) {
   const cardStyle = {
     border: '1px solid #ccc',
     padding: '15px',
     margin: '10px',
     borderRadius: '8px',
-    backgroundColor: '#f9f9f9'
+    backgroundColor: '#f9f9f9',
+    width: '250px'
   };
 
   const buttonStyle = {
@@ -15,7 +16,8 @@ function ServiceCard({ service }) {
     color: 'white',
     border: 'none',
     borderRadius: '4px',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    marginTop: '10px'
   };
 
   return (
@@ -27,5 +29,3 @@ function ServiceCard({ service }) {
     </div>
   );
 }
-
-export default ServiceCard;
