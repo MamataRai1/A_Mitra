@@ -1,6 +1,16 @@
 from rest_framework import generics, permissions
 from rest_framework.response import Response
 from django.http import HttpResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+from .models import Profile
+from .serializers import ProfileSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import RegisterSerializer
+
 from .models import (
     Profile, Service, Booking, Review, Report, Payment, Availability,
     Favorite, Message, Verification, LocationLog
@@ -159,3 +169,46 @@ class LocationLogList(generics.ListCreateAPIView):
 class LocationLogDetail(generics.RetrieveAPIView):
     queryset = LocationLog.objects.all()
     serializer_class = LocationLogSerializer
+
+
+class RegisterView(APIView):
+    # This line tells Django: "Don't look for a JWT or Session token here"
+    authentication_classes = [] 
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "user": serializer.data,
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+        
+        # This will print errors to your terminal if the data is invalid
+        print(serializer.errors) 
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+
+        user = authenticate(username=username, password=password)
+        
+        if user is not None:
+            profile = Profile.objects.get(user=user)
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'role': profile.role
+                }
+            })
+        return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)

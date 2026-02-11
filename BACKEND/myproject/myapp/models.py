@@ -13,13 +13,19 @@ class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=USER_ROLE_CHOICES, default='client')
 
+    # Basic Info
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     profile_pic = models.ImageField(upload_to='profiles/', blank=True, null=True)
 
+    # --- KYC / VERIFICATION FIELDS ---
+    # The national ID image (Citizenship/License)
+    kyc_id = models.ImageField(upload_to='kyc_ids/', blank=True, null=True)
     is_verified = models.BooleanField(default=False)
-    is_suspended = models.BooleanField(default=False)
+    kyc_submitted_at = models.DateTimeField(blank=True, null=True)
+    # ---------------------------------
 
+    is_suspended = models.BooleanField(default=False)
     trust_score = models.DecimalField(max_digits=3, decimal_places=2, default=5.00)
 
     created_at = models.DateTimeField(default=timezone.now)

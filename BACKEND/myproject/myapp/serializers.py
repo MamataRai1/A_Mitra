@@ -18,8 +18,42 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ['id', 'user', 'role', 'phone_number', 'address', 'profile_pic', 'created_at']
+        fields = [
+            'id', 'user', 'role', 'phone_number', 'address', 
+            'profile_pic', 'kyc_id', 'is_verified', 
+            'is_suspended', 'trust_score', 'created_at'
+        ]
 
+
+# -------------------- Register Serializer (Updated for KYC) --------------------
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+    role = serializers.CharField(write_only=True, required=False)
+    # Accepting the National ID image file
+    kyc_id = serializers.ImageField(write_only=True, required=True)
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'password', 'first_name', 'last_name', 'role', 'kyc_id']
+
+    def create(self, validated_data):
+        try:
+            role = validated_data.pop('role', 'client')
+            kyc_id = validated_data.pop('kyc_id')
+            
+            user = User.objects.create_user(
+                username=validated_data['username'],
+                email=validated_data.get('email', ''),
+                password=validated_data['password'],
+                first_name=validated_data.get('first_name', ''),
+                last_name=validated_data.get('last_name', '')
+            )
+            
+            Profile.objects.create(user=user, role=role, kyc_id=kyc_id)
+            return user
+        except Exception as e:
+            print(f"DEBUG ERROR: {e}") # Check your VS Code / Terminal for this!
+            raise serializers.ValidationError(str(e))
 
 # -------------------- Service Serializer --------------------
 class ServiceSerializer(serializers.ModelSerializer):
