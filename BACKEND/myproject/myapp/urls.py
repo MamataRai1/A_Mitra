@@ -4,6 +4,9 @@ from .views import RegisterView, LoginView
 
 urlpatterns = [
 
+    path('admin/pending-kyc/', views.AdminPendingKYCView.as_view(), name='admin-pending-kyc'),
+    path('admin/verify-user/<int:pk>/', views.AdminVerifyUserView.as_view(), name='admin-verify-user'),
+
     # -------------------- Profiles --------------------
     path('profiles/', views.ProfileList.as_view(), name='profile-list'),
     path('profiles/<int:pk>/', views.ProfileDetail.as_view(), name='profile-detail'),

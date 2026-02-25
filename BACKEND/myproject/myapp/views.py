@@ -10,6 +10,11 @@ from .models import Profile
 from .serializers import ProfileSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer
+from rest_framework import status, permissions
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import Profile
+from .serializers import ProfileSerializer
 
 from .models import (
     Profile, Service, Booking, Review, Report, Payment, Availability,
@@ -85,12 +90,16 @@ class ReportList(generics.ListCreateAPIView):
 
     def get_queryset(self):
         profile = Profile.objects.get(user=self.request.user)
+        # Admins can see all reports; normal users only see the ones they created
+        if profile.role == "admin" or self.request.user.is_staff:
+            return Report.objects.all()
         return Report.objects.filter(reporter=profile)
 
-class ReportDetail(generics.RetrieveAPIView):
+class ReportDetail(generics.RetrieveUpdateAPIView):
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    # Only admins should change report status / notes
+    permission_classes = [permissions.IsAdminUser]
 
 # -------------------- Payments --------------------
 class PaymentList(generics.ListCreateAPIView):
@@ -191,6 +200,8 @@ class RegisterView(APIView):
         print(serializer.errors) 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class LoginView(APIView):
+    
+    authentication_classes = [] 
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -198,17 +209,70 @@ class LoginView(APIView):
         password = request.data.get('password')
 
         user = authenticate(username=username, password=password)
-        
+
         if user is not None:
-            profile = Profile.objects.get(user=user)
+            # Using get_or_create to avoid crashes if a profile is missing
+            profile, created = Profile.objects.get_or_create(user=user)
+
+            # If this is a Django admin / staff user, always mark profile as 'admin'
+            if (user.is_superuser or user.is_staff) and profile.role != "admin":
+                profile.role = "admin"
+                profile.save()
+
             refresh = RefreshToken.for_user(user)
+
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
                 'user': {
                     'id': user.id,
                     'username': user.username,
-                    'role': profile.role
-                }
+                    'role': profile.role,
+                    'profile_id': profile.id,
+                },
             })
+        
         return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+    
+
+class AdminPendingKYCView(APIView):
+    permission_classes = [permissions.IsAdminUser] # Only Admin/123 can access
+
+    def get(self, request):
+        # We only want users who are NOT verified and are NOT admins
+        pending_profiles = Profile.objects.filter(is_verified=False).exclude(role='admin')
+        serializer = ProfileSerializer(pending_profiles, many=True)
+        return Response(serializer.data)
+
+# 2. View to Approve or Reject a user
+class AdminVerifyUserView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def patch(self, request, pk):
+        try:
+            profile = Profile.objects.get(pk=pk)
+            action = request.data.get('action') # 'approve', 'reject', 'suspend', 'unsuspend'
+
+            if action == 'approve':
+                profile.is_verified = True
+                profile.save()
+                return Response({'message': f'User {profile.user.username} verified successfully.'})
+            
+            elif action == 'reject':
+                # You could also delete the kyc_id here if you want them to re-upload
+                profile.kyc_id = None 
+                profile.save()
+                return Response({'message': 'Verification rejected.'})
+
+            elif action == 'suspend':
+                profile.is_suspended = True
+                profile.save()
+                return Response({'message': f'User {profile.user.username} suspended.'})
+
+            elif action == 'unsuspend':
+                profile.is_suspended = False
+                profile.save()
+                return Response({'message': f'User {profile.user.username} unsuspended.'})
+
+        except Profile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)

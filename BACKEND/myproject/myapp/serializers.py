@@ -113,6 +113,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 class ReportSerializer(serializers.ModelSerializer):
     reporter = ProfileSerializer(read_only=True)
     booking = BookingSerializer(read_only=True)
+    reported_user = ProfileSerializer(read_only=True)
 
     reporter_id = serializers.PrimaryKeyRelatedField(
         queryset=Profile.objects.all(),
@@ -123,12 +124,33 @@ class ReportSerializer(serializers.ModelSerializer):
     booking_id = serializers.PrimaryKeyRelatedField(
         queryset=Booking.objects.all(),
         source="booking",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    reported_user_id = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        source="reported_user",
         write_only=True
     )
 
     class Meta:
         model = Report
-        fields = ['id', 'reporter', 'reporter_id', 'booking', 'booking_id', 'reason', 'created_at']
+        fields = [
+            'id',
+            'reporter',
+            'reporter_id',
+            'reported_user',
+            'reported_user_id',
+            'booking',
+            'booking_id',
+            'reason',
+            'description',
+            'status',
+            'admin_note',
+            'created_at',
+        ]
 
 
 # -------------------- Payment Serializer --------------------
