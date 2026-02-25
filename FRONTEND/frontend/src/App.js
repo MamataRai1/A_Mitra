@@ -9,6 +9,9 @@ import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import ClientDashboard from "./pages/users/ClientDashboard";
+import ProviderDashboard from "./pages/providers/ProviderDashboard";
+import ProviderProfilePage from "./pages/providers/ProviderProfilePage";
+import ProviderAvailabilityPage from "./pages/providers/ProviderAvailabilityPage";
 import ServiceDetail from "./pages/users/ServiceDetail";
 import FavoritesPage from "./pages/users/FavoritesPage";
 import BookingsPage from "./pages/users/BookingsPage";
@@ -34,11 +37,44 @@ function App() {
           isAuthenticated && role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />
         } />
 
-        <Route path="/dashboard" element={
-          isAuthenticated 
-            ? (role === 'admin' ? <Navigate to="/admin" /> : <ClientDashboard />) 
-            : <Navigate to="/login" />
-        } />
+        <Route
+          path="/dashboard"
+          element={
+            isAuthenticated ? (
+              role === "admin" ? (
+                <Navigate to="/admin" />
+              ) : role === "provider" ? (
+                <ProviderDashboard />
+              ) : (
+                <ClientDashboard />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+        {/* Provider-only extra pages */}
+        <Route
+          path="/provider/profile"
+          element={
+            isAuthenticated && role === "provider" ? (
+              <ProviderProfilePage />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/provider/availability"
+          element={
+            isAuthenticated && role === "provider" ? (
+              <ProviderAvailabilityPage />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
 
         <Route
           path="/services/:serviceId"

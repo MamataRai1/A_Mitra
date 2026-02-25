@@ -1,0 +1,259 @@
+import React, { useEffect, useState } from "react";
+import ClientNavbar from "../../components/common/Navbar";
+import Footer from "../../components/common/Footer";
+import API from "../../api";
+
+function ProviderProfilePage() {
+  const [profile, setProfile] = useState(null);
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [profilePic, setProfilePic] = useState(null);
+  const [bio, setBio] = useState("");
+  const [skills, setSkills] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const profileId = localStorage.getItem("profile_id");
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!profileId) return;
+      try {
+        const res = await API.get(`/profiles/${profileId}/`);
+        setProfile(res.data);
+        setPhone(res.data.phone_number || "");
+        setAddress(res.data.address || "");
+        setBio(res.data.bio || "");
+        setSkills(res.data.skills || "");
+      } catch (err) {
+        console.error("Failed to load provider profile", err);
+        setMessage("Could not load your profile. Please try again.");
+      }
+    };
+    loadProfile();
+  }, [profileId]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!profileId) return;
+    setSaving(true);
+    setMessage("");
+
+    try {
+      const formData = new FormData();
+      formData.append("phone_number", phone);
+      formData.append("address", address);
+      formData.append("bio", bio);
+      formData.append("skills", skills);
+      if (profilePic) {
+        formData.append("profile_pic", profilePic);
+      }
+
+      const res = await API.patch(`/profiles/${profileId}/`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setProfile(res.data);
+      setMessage("Profile updated successfully.");
+    } catch (err) {
+      console.error("Failed to update profile", err);
+      setMessage("Could not save changes. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const currentAvatar =
+    profile && profile.profile_pic
+      ? `http://127.0.0.1:8000${profile.profile_pic}`
+      : null;
+
+  return (
+    <div style={{ background: "#050816", minHeight: "100vh", color: "white" }}>
+      <ClientNavbar />
+      <main
+        style={{
+          maxWidth: "800px",
+          margin: "40px auto",
+          padding: "0 20px 40px",
+        }}
+      >
+        <h1 style={{ fontSize: "26px", fontWeight: 800, marginBottom: "8px" }}>
+          Provider Profile
+        </h1>
+        <p style={{ fontSize: "13px", opacity: 0.7, marginBottom: "24px" }}>
+          Update your contact details, story, and profile picture. These
+          details help clients trust and understand you.
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
+          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+            <div>
+              {currentAvatar ? (
+                <img
+                  src={currentAvatar}
+                  alt="Profile"
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 24,
+                    objectFit: "cover",
+                    border: "2px solid rgba(129,140,248,0.8)",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 24,
+                    background:
+                      "linear-gradient(135deg, rgba(79,70,229,0.6), rgba(236,72,153,0.6))",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 26,
+                    fontWeight: 700,
+                  }}
+                >
+                  {profile?.user?.username?.[0]?.toUpperCase() || "P"}
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: "13px" }}>
+              <label style={{ display: "block", marginBottom: 6 }}>
+                <span style={{ display: "block", marginBottom: 4 }}>
+                  Profile Photo
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setProfilePic(e.target.files[0])}
+                  style={{ fontSize: "12px" }}
+                />
+              </label>
+              <p style={{ opacity: 0.6 }}>
+                Square images (1:1) look best in the app.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: "12px", display: "block", marginBottom: 4 }}>
+              Phone Number
+            </label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "rgba(15,23,42,0.9)",
+                color: "white",
+                fontSize: "14px",
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "12px", display: "block", marginBottom: 4 }}>
+              Short Bio / About You
+            </label>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "rgba(15,23,42,0.9)",
+                color: "white",
+                fontSize: "14px",
+                resize: "vertical",
+              }}
+              placeholder="Tell clients what kind of companion you are, your vibe, languages, experience..."
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "12px", display: "block", marginBottom: 4 }}>
+              Skills / Services (comma separated)
+            </label>
+            <input
+              type="text"
+              value={skills}
+              onChange={(e) => setSkills(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "rgba(15,23,42,0.9)",
+                color: "white",
+                fontSize: "14px",
+              }}
+              placeholder="e.g. movie nights, city tours, gaming, study buddy"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: "12px", display: "block", marginBottom: 4 }}>
+              Address / City
+            </label>
+            <textarea
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              rows={3}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "rgba(15,23,42,0.9)",
+                color: "white",
+                fontSize: "14px",
+                resize: "vertical",
+              }}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              marginTop: 4,
+              padding: "10px 16px",
+              borderRadius: 999,
+              border: "none",
+              background:
+                "linear-gradient(135deg, rgba(129,140,248,1), rgba(236,72,153,1))",
+              color: "white",
+              fontSize: "14px",
+              fontWeight: 700,
+              cursor: saving ? "wait" : "pointer",
+              opacity: saving ? 0.7 : 1,
+              alignSelf: "flex-start",
+            }}
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </form>
+
+        {message && (
+          <p style={{ marginTop: 14, fontSize: "13px", color: "#a5b4fc" }}>
+            {message}
+          </p>
+        )}
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default ProviderProfilePage;
+

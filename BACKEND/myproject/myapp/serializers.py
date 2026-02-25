@@ -19,8 +19,9 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = [
-            'id', 'user', 'role', 'phone_number', 'address', 
-            'profile_pic', 'kyc_id', 'is_verified', 
+            'id', 'user', 'role', 'phone_number', 'address',
+            'bio', 'skills',
+            'profile_pic', 'kyc_id', 'is_verified',
             'is_suspended', 'trust_score', 'created_at'
         ]
 
@@ -31,15 +32,17 @@ class RegisterSerializer(serializers.ModelSerializer):
     role = serializers.CharField(write_only=True, required=False)
     # Accepting the National ID image file
     kyc_id = serializers.ImageField(write_only=True, required=True)
+    profile_pic = serializers.ImageField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'first_name', 'last_name', 'role', 'kyc_id']
+        fields = ['username', 'email', 'password', 'first_name', 'last_name', 'role', 'kyc_id', 'profile_pic']
 
     def create(self, validated_data):
         try:
             role = validated_data.pop('role', 'client')
             kyc_id = validated_data.pop('kyc_id')
+            profile_pic = validated_data.pop('profile_pic', None)
             
             user = User.objects.create_user(
                 username=validated_data['username'],
@@ -49,7 +52,12 @@ class RegisterSerializer(serializers.ModelSerializer):
                 last_name=validated_data.get('last_name', '')
             )
             
-            Profile.objects.create(user=user, role=role, kyc_id=kyc_id)
+            Profile.objects.create(
+                user=user,
+                role=role,
+                kyc_id=kyc_id,
+                profile_pic=profile_pic,
+            )
             return user
         except Exception as e:
             print(f"DEBUG ERROR: {e}") # Check your VS Code / Terminal for this!

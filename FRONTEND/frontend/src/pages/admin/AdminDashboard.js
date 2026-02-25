@@ -9,17 +9,26 @@ import {
   FiSettings,
   FiLogOut,
   FiX,
+  FiCalendar,
+  FiCreditCard,
+  FiBarChart2,
+  FiStar,
 } from 'react-icons/fi';
 import AdminOverviewSection from './AdminOverviewSection';
 import AdminKycSection from './AdminKycSection';
 import AdminUsersSection from './AdminUsersSection';
 import AdminReportsSection from './AdminReportsSection';
 import AdminSettingsSection from './AdminSettingsSection';
+import AdminBookingsSection from './AdminBookingsSection';
+import AdminPaymentsSection from './AdminPaymentsSection';
+import AdminReviewsSection from './AdminReviewsSection';
+import AdminAnalyticsSection from './AdminAnalyticsSection';
+import AdminUserProfileModal from './AdminUserProfileModal';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const [theme, setTheme] = useState('dark');
-    const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'kyc' | 'manage_users' | 'reports' | 'settings'
+    const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'kyc' | 'manage_users' | 'bookings' | 'payments' | 'reviews' | 'analytics' | 'reports' | 'settings'
     const [selectedIdImage, setSelectedIdImage] = useState(null);
     const [pendingUsers, setPendingUsers] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
@@ -27,6 +36,7 @@ const AdminDashboard = () => {
     const [payments, setPayments] = useState([]);
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState(null);
 
     const isDark = theme === 'dark';
 
@@ -117,8 +127,9 @@ const AdminDashboard = () => {
     const pendingReports = reports.filter(r => r.status === 'pending').length;
 
     const handleLogout = () => {
+        // Clear all auth/session data and hard-redirect to login
         localStorage.clear();
-        navigate('/login');
+        window.location.href = '/login';
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#0f0c1d] text-white">Loading Command Center...</div>;
@@ -154,6 +165,30 @@ const AdminDashboard = () => {
                         onClick={() => setActiveTab('manage_users')}
                     />
                     <SidebarItem
+                        icon={<FiCalendar />}
+                        label="Bookings"
+                        active={activeTab === 'bookings'}
+                        onClick={() => setActiveTab('bookings')}
+                    />
+                    <SidebarItem
+                        icon={<FiCreditCard />}
+                        label="Payments"
+                        active={activeTab === 'payments'}
+                        onClick={() => setActiveTab('payments')}
+                    />
+                    <SidebarItem
+                        icon={<FiStar />}
+                        label="Reviews"
+                        active={activeTab === 'reviews'}
+                        onClick={() => setActiveTab('reviews')}
+                    />
+                    <SidebarItem
+                        icon={<FiBarChart2 />}
+                        label="Analytics"
+                        active={activeTab === 'analytics'}
+                        onClick={() => setActiveTab('analytics')}
+                    />
+                    <SidebarItem
                         icon={<FiAlertTriangle />}
                         label="Reports"
                         active={activeTab === 'reports'}
@@ -179,9 +214,17 @@ const AdminDashboard = () => {
                         <h1 className="text-3xl font-black tracking-tight">Command Center</h1>
                         <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Monitoring platform safety & identity verification.</p>
                     </div>
-                    <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 hover:bg-indigo-600 hover:text-white transition-all shadow-xl">
-                        {isDark ? '☀️' : '🌙'}
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                          onClick={handleLogout}
+                          className="px-4 py-2 rounded-2xl text-xs font-bold border border-red-400/40 text-red-400 hover:bg-red-500/10 transition-all"
+                        >
+                          Logout
+                        </button>
+                        <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 hover:bg-indigo-600 hover:text-white transition-all shadow-xl">
+                            {isDark ? '☀️' : '🌙'}
+                        </button>
+                    </div>
                 </header>
 
                 {/* --- OVERVIEW / KYC / USERS / REPORTS / SETTINGS --- */}
@@ -191,6 +234,11 @@ const AdminDashboard = () => {
                     pendingUsers={pendingUsers}
                     onViewId={setSelectedIdImage}
                     onAction={handleAction}
+                    users={allUsers}
+                    totalClients={totalClients}
+                    totalProviders={totalProviders}
+                    onGoToManageUsers={() => setActiveTab('manage_users')}
+                    onSelectUser={(profile) => setSelectedProfile(profile)}
                   />
                 )}
 
@@ -209,9 +257,43 @@ const AdminDashboard = () => {
                     users={allUsers}
                     totalClients={totalClients}
                     totalProviders={totalProviders}
+                    onSelectUser={(profile) => setSelectedProfile(profile)}
                     onToggleSuspend={(userId, isSuspended) =>
                       handleAction(userId, isSuspended ? 'unsuspend' : 'suspend')
                     }
+                  />
+                )}
+
+                {activeTab === 'bookings' && (
+                  <AdminBookingsSection
+                    isDark={isDark}
+                    bookings={bookings}
+                  />
+                )}
+
+                {activeTab === 'payments' && (
+                  <AdminPaymentsSection
+                    isDark={isDark}
+                    payments={payments}
+                  />
+                )}
+
+                {activeTab === 'reviews' && (
+                  <AdminReviewsSection
+                    isDark={isDark}
+                    reviews={[]} // hook up when reviews API is integrated on admin side
+                    onDelete={() => {}}
+                  />
+                )}
+
+                {activeTab === 'analytics' && (
+                  <AdminAnalyticsSection
+                    isDark={isDark}
+                    totalUsers={totalUsers}
+                    totalProviders={totalProviders}
+                    totalClients={totalClients}
+                    totalBookings={totalBookings}
+                    totalRevenue={totalRevenue}
                   />
                 )}
 
@@ -249,6 +331,15 @@ const AdminDashboard = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* --- USER PROFILE DETAIL MODAL --- */}
+            {selectedProfile && (
+              <AdminUserProfileModal
+                isDark={isDark}
+                profile={selectedProfile}
+                onClose={() => setSelectedProfile(null)}
+              />
             )}
         </div>
     );

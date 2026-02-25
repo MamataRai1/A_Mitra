@@ -35,6 +35,20 @@ function BookingsPage() {
     setReportMessage("");
   };
 
+  const updateBookingStatus = async (bookingId, newStatus) => {
+    try {
+      const res = await API.patch(`/bookings/${bookingId}/`, {
+        status: newStatus,
+      });
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, ...res.data } : b))
+      );
+    } catch (err) {
+      console.error("Failed to update booking status", err);
+      alert("Could not update booking. Please try again.");
+    }
+  };
+
   const handleSubmitReport = async ({ reason, description }) => {
     if (!reportTarget) return;
     const profileId = localStorage.getItem("profile_id");
@@ -138,7 +152,15 @@ function BookingsPage() {
                     </p>
                     <p style={{ color: "#6b7280", fontSize: "13px" }}>{date}</p>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      justifyContent: "flex-end",
+                    }}
+                  >
                     <span
                       style={{
                         padding: "6px 12px",
@@ -150,6 +172,68 @@ function BookingsPage() {
                     >
                       {booking.status}
                     </span>
+                    {role === "provider" && booking.status === "pending" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateBookingStatus(booking.id, "confirmed")
+                          }
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: "999px",
+                            border: "1px solid #bbf7d0",
+                            background: "#ecfdf5",
+                            color: "#15803d",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateBookingStatus(booking.id, "canceled")
+                          }
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: "999px",
+                            border: "1px solid #fecaca",
+                            background: "#fef2f2",
+                            color: "#b91c1c",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {role === "provider" &&
+                      (booking.status === "confirmed" ||
+                        booking.status === "pending") && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateBookingStatus(booking.id, "canceled")
+                          }
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: "999px",
+                            border: "1px solid #fed7aa",
+                            background: "#fff7ed",
+                            color: "#c2410c",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      )}
                     <button
                       type="button"
                       onClick={() => openReport(booking)}

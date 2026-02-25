@@ -6,6 +6,7 @@ const AdminUsersSection = ({
   totalClients,
   totalProviders,
   onToggleSuspend,
+  onSelectUser,
 }) => (
   <div
     className={`rounded-[35px] border overflow-hidden ${
@@ -29,16 +30,16 @@ const AdminUsersSection = ({
             <th className="p-6">User</th>
             <th className="p-6">Role</th>
             <th className="p-6">Status</th>
-            <th className="p-6 text-center">Action</th>
+            <th className="p-6 text-center">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
           {users.map((user) => (
-            <tr
-              key={user.id}
-              className="hover:bg-indigo-500/5 transition-colors"
-            >
-              <td className="p-6">
+            <tr key={user.id} className="hover:bg-indigo-500/5 transition-colors">
+              <td
+                className="p-6 cursor-pointer"
+                onClick={() => onSelectUser && onSelectUser(user)}
+              >
                 <div className="font-bold">{user.user.username}</div>
                 <div className="text-xs opacity-60">{user.user.email}</div>
               </td>
@@ -68,6 +69,14 @@ const AdminUsersSection = ({
               </td>
               <td className="p-6">
                 <div className="flex items-center justify-center gap-2">
+                  {onSelectUser && (
+                    <button
+                      onClick={() => onSelectUser(user)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold uppercase bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all"
+                    >
+                      View profile
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       onToggleSuspend(user.id, user.is_suspended)

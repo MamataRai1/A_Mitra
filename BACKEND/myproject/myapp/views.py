@@ -36,7 +36,7 @@ class ProfileList(generics.ListAPIView):
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class ProfileDetail(generics.RetrieveAPIView):
+class ProfileDetail(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -79,9 +79,10 @@ class ReviewList(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class ReviewDetail(generics.RetrieveAPIView):
+class ReviewDetail(generics.RetrieveDestroyAPIView):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
+    permission_classes = [permissions.IsAdminUser]
 
 # -------------------- Reports (Safety Alerts) --------------------
 class ReportList(generics.ListCreateAPIView):
@@ -107,7 +108,7 @@ class PaymentList(generics.ListCreateAPIView):
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class PaymentDetail(generics.RetrieveAPIView):
+class PaymentDetail(generics.RetrieveUpdateAPIView):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]

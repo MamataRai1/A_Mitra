@@ -135,6 +135,10 @@ function ServiceDetail() {
     service?.provider?.user?.first_name ||
     "Provider";
 
+  const providerAvatar = service?.provider?.profile_pic
+    ? `http://127.0.0.1:8000${service.provider.profile_pic}`
+    : null;
+
   return (
     <div style={{ background: "#f8f6ff", minHeight: "100vh" }}>
       <ClientNavbar />
@@ -166,10 +170,51 @@ function ServiceDetail() {
                 boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
               }}
             >
-              <h1 style={{ marginBottom: "10px" }}>{service.name}</h1>
-              <p style={{ color: "#555", marginBottom: "10px" }}>
-                Hosted by <strong>{providerName}</strong>
-              </p>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: "14px",
+                  gap: "12px",
+                }}
+              >
+                {providerAvatar ? (
+                  <img
+                    src={providerAvatar}
+                    alt={providerName}
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: "999px",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: "999px",
+                      background:
+                        "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(236,72,153,0.3))",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 24,
+                      fontWeight: 700,
+                      color: "#4c1d95",
+                    }}
+                  >
+                    {providerName[0]?.toUpperCase() || "P"}
+                  </div>
+                )}
+                <div>
+                  <h1 style={{ marginBottom: "4px" }}>{service.name}</h1>
+                  <p style={{ color: "#555", fontSize: "14px", margin: 0 }}>
+                    Hosted by <strong>{providerName}</strong>
+                  </p>
+                </div>
+              </div>
               <p style={{ color: "#555", marginBottom: "20px" }}>
                 {service.description}
               </p>

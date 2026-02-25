@@ -20,7 +20,8 @@ const RegisterPage = () => {
         firstName: '',
         lastName: '',
         role: 'client', 
-        kyc_id: null
+        kyc_id: null,
+        profile_pic: null,
     });
 
     const isDark = theme === 'dark';
@@ -43,6 +44,16 @@ const RegisterPage = () => {
         setFormData({ ...formData, kyc_id: file });
     };
 
+    const handleProfilePicChange = (e) => {
+        const file = e.target.files[0];
+        if (file && file.size > 5 * 1024 * 1024) {
+            alert("File too large. Max 5MB allowed.");
+            e.target.value = null;
+            return;
+        }
+        setFormData({ ...formData, profile_pic: file });
+    };
+
     // 3. Triggered by the "Create Account" button
     const handleRegisterClick = (e) => {
         e.preventDefault();
@@ -53,6 +64,9 @@ const RegisterPage = () => {
         }
         if (!formData.kyc_id) {
             return setErrorMsg("Please upload your National ID for verification.");
+        }
+        if (formData.role === 'provider' && !formData.profile_pic) {
+            return setErrorMsg("Please upload your profile photo (for providers).");
         }
         if (formData.username.includes(" ")) {
             return setErrorMsg("Username cannot contain spaces.");
@@ -75,6 +89,9 @@ const RegisterPage = () => {
         data.append('last_name', formData.lastName);
         data.append('role', formData.role); 
         data.append('kyc_id', formData.kyc_id);
+        if (formData.profile_pic) {
+            data.append('profile_pic', formData.profile_pic);
+        }
 
         try {
             console.log("Attempting registration for role:", formData.role);
@@ -152,6 +169,18 @@ const RegisterPage = () => {
                         <div className="space-y-1">
                             <label className={`text-[10px] font-black uppercase tracking-widest ml-2 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>Upload National ID (Citizenship/License) *</label>
                             <input type="file" accept="image/*" required onChange={handleFileChange} className={`w-full p-3 rounded-2xl outline-none file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold ${isDark ? 'bg-[#3d354e] text-gray-400 file:bg-indigo-600 file:text-white' : 'bg-gray-50 border file:bg-indigo-100 file:text-indigo-700'}`} />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className={`text-[10px] font-black uppercase tracking-widest ml-2 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                Profile Photo {formData.role === 'provider' ? '*' : '(optional)'}
+                            </label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleProfilePicChange}
+                                className={`w-full p-3 rounded-2xl outline-none file:mr-4 file:py-1 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold ${isDark ? 'bg-[#3d354e] text-gray-400 file:bg-indigo-600 file:text-white' : 'bg-gray-50 border file:bg-indigo-100 file:text-indigo-700'}`}
+                            />
                         </div>
 
                         <button 
