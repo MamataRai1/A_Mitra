@@ -188,7 +188,7 @@ class AvailabilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Availability
-        fields = ['id', 'provider', 'provider_id', 'day', 'start_time', 'end_time']
+        fields = ['id', 'provider', 'provider_id', 'day', 'start_time', 'end_time', 'is_active']
 
 
 # -------------------- Favorite Serializer --------------------

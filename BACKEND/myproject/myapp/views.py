@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.response import Response
 from django.http import HttpResponse
 from rest_framework.views import APIView
@@ -40,6 +41,20 @@ class ProfileDetail(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def perform_update(self, serializer):
+        # Only allow users to update their own profile (or admin)
+        profile = self.get_object()
+        try:
+            user_profile = Profile.objects.get(user=self.request.user)
+        except Profile.DoesNotExist:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("No profile found for this user.")
+        if profile.id != user_profile.id and user_profile.role != "admin":
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You can only update your own profile.")
+        serializer.save()
 
 # -------------------- Services --------------------
 class ServiceList(generics.ListCreateAPIView):
@@ -174,11 +189,121 @@ class LocationLogList(generics.ListCreateAPIView):
 
     def get_queryset(self):
         profile = Profile.objects.get(user=self.request.user)
-        return LocationLog.objects.filter(profile=profile)
+        return LocationLog.objects.filter(profile=profile).order_by("-logged_at")
+
+    def perform_create(self, serializer):
+        # Always bind logs to the authenticated user (ignore any submitted profile_id)
+        profile = Profile.objects.get(user=self.request.user)
+        serializer.save(profile=profile)
 
 class LocationLogDetail(generics.RetrieveAPIView):
     queryset = LocationLog.objects.all()
     serializer_class = LocationLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+# -------------------- Alert summary (for real-time-like alerts) --------------------
+class AlertSummaryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile = Profile.objects.get(user=request.user)
+
+        # For providers, show bookings tied to their services
+        if profile.role == "provider":
+            bookings_qs = Booking.objects.filter(service__provider=profile)
+        else:
+            bookings_qs = Booking.objects.filter(client=profile)
+
+        upcoming = bookings_qs.filter(status__in=["pending", "confirmed"])
+        completed = bookings_qs.filter(status="completed")
+
+        # Safety reports this profile has sent
+        reports_qs = Report.objects.filter(reporter=profile)
+        unresolved_reports = reports_qs.exclude(status__in=["resolved", "rejected"])
+
+        latest_booking = bookings_qs.order_by("-created_at").first()
+        latest_report = reports_qs.order_by("-created_at").first()
+
+        return Response(
+            {
+                "upcoming_bookings": upcoming.count(),
+                "completed_bookings": completed.count(),
+                "unresolved_reports": unresolved_reports.count(),
+                "latest_booking_created_at": getattr(
+                    latest_booking, "created_at", None
+                ),
+                "latest_report_created_at": getattr(latest_report, "created_at", None),
+            }
+        )
+
+
+class AlertPanelView(APIView):
+    """
+    Detailed alerts & reviews data for the provider dashboard Alerts tab.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile = Profile.objects.get(user=request.user)
+
+        # Reports this user has created
+        sent_reports = Report.objects.filter(reporter=profile).order_by("-created_at")
+
+        # Reports where this user was reported
+        received_reports = Report.objects.filter(reported_user=profile).order_by(
+            "-created_at"
+        )
+
+        # Reviews about this provider (based on bookings of their services)
+        reviews = Review.objects.filter(
+            booking__service__provider=profile
+        ).order_by("-created_at")
+
+        return Response(
+            {
+                "sent_reports": ReportSerializer(sent_reports, many=True).data,
+                "received_reports": ReportSerializer(received_reports, many=True).data,
+                "reviews": ReviewSerializer(reviews, many=True).data,
+            }
+        )
+
+
+class ReportTargetsView(APIView):
+    """
+    Return a list of clients that a provider has interacted with via bookings,
+    so the provider can pick a user to report from the Alerts tab.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        profile = Profile.objects.get(user=request.user)
+        if profile.role != "provider":
+            return Response({"detail": "Only providers can access this."}, status=403)
+
+        qs = (
+            Booking.objects.filter(service__provider=profile)
+            .select_related("client__user")
+            .order_by("-created_at")
+        )
+
+        seen = set()
+        targets = []
+        for b in qs:
+            if not b.client_id or b.client_id in seen:
+                continue
+            seen.add(b.client_id)
+            targets.append(
+                {
+                    "client": ProfileSerializer(b.client).data,
+                    "latest_booking_id": b.id,
+                    "latest_booking_created_at": b.created_at,
+                }
+            )
+
+        return Response({"targets": targets})
 
 
 class RegisterView(APIView):

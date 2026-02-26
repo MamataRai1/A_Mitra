@@ -22,8 +22,11 @@ const LoginPage = () => {
     try {
         const response = await API.post('/auth/login/', { username, password });
 
-        // 1. Save data
+        // 1. Save tokens and user data
         localStorage.setItem('access_token', response.data.access);
+        if (response.data.refresh) {
+            localStorage.setItem('refresh_token', response.data.refresh);
+        }
         localStorage.setItem('role', response.data.user.role);
         localStorage.setItem('username', response.data.user.username);
         if (response.data.user.profile_id) {

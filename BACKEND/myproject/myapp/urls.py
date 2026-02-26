@@ -1,4 +1,5 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
 from .views import RegisterView, LoginView
 
@@ -51,9 +52,15 @@ urlpatterns = [
     path('locations/', views.LocationLogList.as_view(), name='locationlog-list'),
     path('locations/<int:pk>/', views.LocationLogDetail.as_view(), name='locationlog-detail'),
 
+    # -------------------- Alerts --------------------
+    path('alerts/summary/', views.AlertSummaryView.as_view(), name='alert-summary'),
+    path('alerts/panel/', views.AlertPanelView.as_view(), name='alert-panel'),
+    path('alerts/report-targets/', views.ReportTargetsView.as_view(), name='alert-report-targets'),
+
     # -------------------- API Home --------------------
     path('', views.home, name='api-home'),
 
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', views.LoginView.as_view(), name='login'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 ]

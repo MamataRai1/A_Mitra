@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ClientNavbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
 import API from "../../api";
@@ -10,6 +11,8 @@ function ProviderAvailabilityPage() {
   const [endTime, setEndTime] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const navigate = useNavigate();
 
   const profileId = localStorage.getItem("profile_id");
 
@@ -42,6 +45,8 @@ function ProviderAvailabilityPage() {
       setStartTime("");
       setEndTime("");
       await loadSlots();
+      // After creating a slot, go back to dashboard Availability tab
+      navigate("/dashboard?tab=availability");
     } catch (err) {
       console.error("Failed to add availability", err);
       setError("Could not add slot. Use HH:MM time like 09:00.");
@@ -59,6 +64,22 @@ function ProviderAvailabilityPage() {
     }
   };
 
+  const handleToggleActive = async (slot) => {
+    try {
+      await API.patch(`/availability/${slot.id}/`, {
+        is_active: !slot.is_active,
+      });
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.id === slot.id ? { ...s, is_active: !slot.is_active } : s
+        )
+      );
+    } catch (err) {
+      console.error("Failed to update slot", err);
+      setError("Could not update this slot. Please try again.");
+    }
+  };
+
   return (
     <div style={{ background: "#050816", minHeight: "100vh", color: "white" }}>
       <ClientNavbar />
@@ -70,10 +91,13 @@ function ProviderAvailabilityPage() {
         }}
       >
         <h1 style={{ fontSize: "26px", fontWeight: 800, marginBottom: "8px" }}>
-          Availability
+          📅 Availability Control
         </h1>
-        <p style={{ fontSize: "13px", opacity: 0.7, marginBottom: "24px" }}>
-          Set the days and hours when clients are allowed to book you.
+        <p style={{ fontSize: "13px", opacity: 0.75, marginBottom: "4px" }}>
+          Set available days &amp; hours for bookings.
+        </p>
+        <p style={{ fontSize: "13px", opacity: 0.75, marginBottom: "24px" }}>
+          Mark busy / unavailable times without deleting your schedule.
         </p>
 
         <form
@@ -218,23 +242,61 @@ function ProviderAvailabilityPage() {
               >
                 <span>
                   <strong>{slot.day}</strong> • {slot.start_time} –{" "}
-                  {slot.end_time}
+                  {slot.end_time}{" "}
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      fontSize: "11px",
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      backgroundColor: slot.is_active
+                        ? "rgba(16,185,129,0.15)"
+                        : "rgba(248,113,113,0.14)",
+                      color: slot.is_active ? "#6ee7b7" : "#fecaca",
+                      border: slot.is_active
+                        ? "1px solid rgba(16,185,129,0.5)"
+                        : "1px solid rgba(248,113,113,0.6)",
+                    }}
+                  >
+                    {slot.is_active ? "Available" : "Busy / unavailable"}
+                  </span>
                 </span>
-                <button
-                  onClick={() => handleDelete(slot.id)}
-                  style={{
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(248,113,113,0.6)",
-                    background: "rgba(248,113,113,0.14)",
-                    color: "#fecaca",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Remove
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => handleToggleActive(slot)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      border: slot.is_active
+                        ? "1px solid rgba(248,113,113,0.6)"
+                        : "1px solid rgba(16,185,129,0.6)",
+                      background: slot.is_active
+                        ? "rgba(248,113,113,0.14)"
+                        : "rgba(16,185,129,0.14)",
+                      color: slot.is_active ? "#fecaca" : "#6ee7b7",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {slot.is_active ? "Mark busy" : "Mark available"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(slot.id)}
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.5)",
+                      background: "transparent",
+                      color: "#cbd5f5",
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>

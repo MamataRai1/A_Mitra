@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import ClientNavbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
 import API from "../../api";
@@ -12,6 +13,8 @@ function ProviderProfilePage() {
   const [skills, setSkills] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [profilePicPreview, setProfilePicPreview] = useState(null); // object URL for selected file
+  const [avatarKey, setAvatarKey] = useState(0); // force img refresh after save
 
   const profileId = localStorage.getItem("profile_id");
 
@@ -32,6 +35,13 @@ function ProviderProfilePage() {
     };
     loadProfile();
   }, [profileId]);
+
+  // Clean up object URL for selected file preview when unmounting
+  useEffect(() => {
+    return () => {
+      if (profilePicPreview) URL.revokeObjectURL(profilePicPreview);
+    };
+  }, [profilePicPreview]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,6 +64,12 @@ function ProviderProfilePage() {
       });
 
       setProfile(res.data);
+      setProfilePic(null);
+      if (profilePicPreview) {
+        URL.revokeObjectURL(profilePicPreview);
+        setProfilePicPreview(null);
+      }
+      setAvatarKey(Date.now()); // so saved image URL refreshes (cache bust)
       setMessage("Profile updated successfully.");
     } catch (err) {
       console.error("Failed to update profile", err);
@@ -63,10 +79,12 @@ function ProviderProfilePage() {
     }
   };
 
-  const currentAvatar =
+  // Preview: show newly selected file before save; otherwise show server image (with cache bust after save)
+  const serverAvatar =
     profile && profile.profile_pic
-      ? `http://127.0.0.1:8000${profile.profile_pic}`
+      ? (profile.profile_pic.startsWith("http") ? profile.profile_pic : `http://127.0.0.1:8000/media/${profile.profile_pic}`)
       : null;
+  const currentAvatar = profilePicPreview || (serverAvatar ? `${serverAvatar}?t=${avatarKey}` : null);
 
   return (
     <div style={{ background: "#050816", minHeight: "100vh", color: "white" }}>
@@ -78,13 +96,21 @@ function ProviderProfilePage() {
           padding: "0 20px 40px",
         }}
       >
-        <h1 style={{ fontSize: "26px", fontWeight: 800, marginBottom: "8px" }}>
-          Provider Profile
-        </h1>
-        <p style={{ fontSize: "13px", opacity: 0.7, marginBottom: "24px" }}>
-          Update your contact details, story, and profile picture. These
-          details help clients trust and understand you.
-        </p>
+        <div style={{ marginBottom: "24px" }}>
+          <Link
+            to="/dashboard"
+            style={{ fontSize: "12px", color: "#a5b4fc", marginBottom: "8px", display: "inline-block", textDecoration: "none" }}
+          >
+            ← Back to dashboard
+          </Link>
+          <h1 style={{ fontSize: "26px", fontWeight: 800, marginBottom: "8px" }}>
+            Provider Profile
+          </h1>
+          <p style={{ fontSize: "13px", opacity: 0.7, marginBottom: 0 }}>
+            Update your contact details, story, and profile picture. These
+            details help clients trust and understand you.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: "16px" }}>
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
@@ -128,7 +154,12 @@ function ProviderProfilePage() {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setProfilePic(e.target.files[0])}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (profilePicPreview) URL.revokeObjectURL(profilePicPreview);
+                    setProfilePic(file || null);
+                    setProfilePicPreview(file ? URL.createObjectURL(file) : null);
+                  }}
                   style={{ fontSize: "12px" }}
                 />
               </label>
