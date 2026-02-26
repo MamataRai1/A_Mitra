@@ -85,11 +85,24 @@ class Review(models.Model):
 
     rating = models.PositiveSmallIntegerField(default=5)
     comment = models.TextField(blank=True, null=True)
+    provider_response = models.TextField(blank=True, null=True)
 
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return f"Review for {self.booking.service.name} - {self.rating}/5"
+
+
+# -------------------- Notifications --------------------
+class Notification(models.Model):
+    recipient = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='notifications')
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Notification for {self.recipient.user.username}: {self.title}"
 
 
 # -------------------- SAFETY REPORTS / ALERTS --------------------
@@ -111,6 +124,13 @@ class Report(models.Model):
         ('rejected', 'Rejected'),
     )
 
+    ACTION_CHOICES = (
+        ('none', 'None Taken'),
+        ('warning', 'Warning Issued'),
+        ('suspension', 'User Suspended'),
+        ('fine', 'Fine Issued'),
+    )
+
     reporter = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='reports_made')
     reported_user = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='reports_received')
 
@@ -120,13 +140,16 @@ class Report(models.Model):
     description = models.TextField(blank=True, null=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    action_taken = models.CharField(max_length=20, choices=ACTION_CHOICES, default='none')
+    fine_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
 
     admin_note = models.TextField(blank=True, null=True)
 
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
-        return f"Report: {self.reporter.user.username} → {self.reported_user.user.username}"
+        return f"Report: {self.reporter.user.username} → {self.reported_user.user.username} (Action: {self.action_taken})"
 
 
 # -------------------- Payment --------------------

@@ -13,9 +13,14 @@ function ProviderCard({ service }) {
     service.provider?.user?.first_name ||
     "Provider";
 
-  const avatarUrl = service.provider?.profile_pic
-    ? `http://127.0.0.1:8000${service.provider.profile_pic}`
-    : null;
+  let avatarUrl = service.provider?.profile_pic;
+  if (avatarUrl) {
+    if (!avatarUrl.startsWith('http')) {
+      avatarUrl = `http://127.0.0.1:8000${avatarUrl.startsWith('/media/') ? '' : '/media/'}${avatarUrl.replace(/^\/?media\//, '')}`;
+    }
+  } else {
+    avatarUrl = `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(providerName)}&backgroundColor=f3f4f6`;
+  }
 
   return (
     <div
@@ -34,35 +39,17 @@ function ProviderCard({ service }) {
           gap: "10px",
         }}
       >
-        {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={providerName}
-            style={{
-              width: 46,
-              height: 46,
-              borderRadius: "50%",
-              objectFit: "cover",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 46,
-              height: 46,
-              borderRadius: "50%",
-              background:
-                "linear-gradient(135deg, rgba(124,58,237,0.3), rgba(236,72,153,0.3))",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-              color: "#4c1d95",
-            }}
-          >
-            {providerName[0]?.toUpperCase() || "P"}
-          </div>
-        )}
+        <img
+          src={avatarUrl}
+          alt={providerName}
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: "50%",
+            objectFit: "cover",
+            backgroundColor: "#f3f4f6",
+          }}
+        />
         <div>
           <h3 style={{ margin: 0 }}>{service.name}</h3>
           <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>

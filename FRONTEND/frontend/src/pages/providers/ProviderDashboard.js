@@ -197,7 +197,7 @@ function ProviderDashboard() {
   );
   const completedBookings = bookings.filter((b) => b.status === "completed");
   const totalEarnings = payments
-    .filter((p) => p.status === "completed")
+    .filter((p) => p.status === "completed" || p.status === "pending")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0)
     .toFixed(2);
 
@@ -281,6 +281,19 @@ function ProviderDashboard() {
   const openReport = (booking) => {
     setReportTargetBooking(booking);
     setReportOpen(true);
+  };
+
+  const handleUpdateBookingStatus = async (id, newStatus) => {
+    try {
+      const res = await API.patch(`/bookings/${id}/`, { status: newStatus });
+      setBookings((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, ...res.data } : b))
+      );
+      setAlertToast(`Booking marked as ${newStatus}`);
+    } catch (err) {
+      console.error("Failed to update booking status", err);
+      alert("Could not update booking. Please try again.");
+    }
   };
 
   const handleSubmitReport = async ({ reason, description }) => {
@@ -414,9 +427,8 @@ function ProviderDashboard() {
   if (loading) {
     return (
       <div
-        className={`min-h-screen flex items-center justify-center ${
-          isDark ? "bg-[#020617] text-white" : "bg-gray-100 text-gray-900"
-        }`}
+        className={`min-h-screen flex items-center justify-center ${isDark ? "bg-[#020617] text-white" : "bg-gray-100 text-gray-900"
+          }`}
       >
         Loading provider command center...
       </div>
@@ -425,19 +437,17 @@ function ProviderDashboard() {
 
   return (
     <div
-      className={`min-h-screen flex ${
-        isDark ? "bg-[#020617] text-white" : "bg-gray-100 text-gray-900"
-      } transition-colors duration-500`}
+      className={`min-h-screen flex ${isDark ? "bg-[#020617] text-white" : "bg-gray-100 text-gray-900"
+        } transition-colors duration-500`}
     >
       {/* Small floating alert toast */}
       {alertToast && (
         <div className="fixed right-6 top-6 z-40 max-w-xs">
           <div
-            className={`px-4 py-3 rounded-2xl text-xs font-medium shadow-lg border ${
-              isDark
-                ? "bg-emerald-500/10 border-emerald-400/40 text-emerald-200"
-                : "bg-emerald-50 border-emerald-300 text-emerald-800"
-            }`}
+            className={`px-4 py-3 rounded-2xl text-xs font-medium shadow-lg border ${isDark
+              ? "bg-emerald-500/10 border-emerald-400/40 text-emerald-200"
+              : "bg-emerald-50 border-emerald-300 text-emerald-800"
+              }`}
           >
             {alertToast}
             <button
@@ -452,9 +462,8 @@ function ProviderDashboard() {
       )}
       {/* Sidebar */}
       <aside
-        className={`w-64 border-r h-full fixed inset-y-0 left-0 flex flex-col p-6 backdrop-blur-xl ${
-          isDark ? "bg-[#020617]/95 border-white/10" : "bg-white border-gray-200"
-        }`}
+        className={`w-64 border-r h-full fixed inset-y-0 left-0 flex flex-col p-6 backdrop-blur-xl ${isDark ? "bg-[#020617]/95 border-white/10" : "bg-white border-gray-200"
+          }`}
       >
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-2xl bg-indigo-500 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/40">
@@ -543,11 +552,10 @@ function ProviderDashboard() {
 
         {error && (
           <div
-            className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${
-              isDark
-                ? "border-red-500/40 bg-red-500/10 text-red-200"
-                : "border-red-200 bg-red-50 text-red-700"
-            }`}
+            className={`mb-6 rounded-2xl border px-4 py-3 text-sm ${isDark
+              ? "border-red-500/40 bg-red-500/10 text-red-200"
+              : "border-red-200 bg-red-50 text-red-700"
+              }`}
           >
             {error}
           </div>
@@ -605,9 +613,8 @@ function ProviderDashboard() {
                     return (
                       <div
                         key={b.id}
-                        className={`flex items-center justify-between rounded-2xl px-3 py-2 ${
-                          isDark ? "bg-white/5" : "bg-gray-50"
-                        }`}
+                        className={`flex items-center justify-between rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
+                          }`}
                       >
                         <div>
                           <p className="font-semibold">
@@ -622,6 +629,35 @@ function ProviderDashboard() {
                           <span className="text-[11px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 capitalize font-semibold">
                             {b.status}
                           </span>
+                          {b.status === "pending" && (
+                            <div className="flex gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateBookingStatus(b.id, "confirmed")}
+                                className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-emerald-500 text-white hover:bg-emerald-400 transition-all"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateBookingStatus(b.id, "canceled")}
+                                className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-white/10 text-gray-300 hover:bg-white/20 transition-all"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                          {b.status === "confirmed" && (
+                            <div className="flex gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateBookingStatus(b.id, "canceled")}
+                                className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-white/10 text-gray-300 hover:bg-white/20 transition-all"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={() => openReport(b)}
@@ -653,9 +689,8 @@ function ProviderDashboard() {
                   {reports.slice(0, 5).map((r) => (
                     <div
                       key={r.id}
-                      className={`rounded-2xl px-3 py-2 ${
-                        isDark ? "bg-white/5" : "bg-gray-50"
-                      }`}
+                      className={`rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
+                        }`}
                     >
                       <p className="text-[11px] uppercase tracking-[0.18em] opacity-60 mb-1">
                         {r.reason.replace("_", " ")}
@@ -699,7 +734,7 @@ function ProviderDashboard() {
                 <div className="flex items-center gap-3">
                   {profile?.profile_pic ? (
                     <img
-                      src={profile.profile_pic.startsWith("http") ? profile.profile_pic : `http://127.0.0.1:8000/media/${profile.profile_pic}`}
+                      src={profile.profile_pic.startsWith("http") ? profile.profile_pic : `http://127.0.0.1:8000${profile.profile_pic.startsWith('/media/') ? '' : '/media/'}${profile.profile_pic.replace(/^\/?media\//, '')}`}
                       alt="Profile"
                       className="w-16 h-16 rounded-2xl object-cover border border-white/10"
                     />
@@ -791,12 +826,22 @@ function ProviderDashboard() {
                   className="px-3 py-2 rounded-xl bg-black/20 border border-white/10 outline-none md:col-span-2"
                 />
                 <div className="flex gap-2">
-                  <input
+                  <select
                     value={newServiceCategory}
                     onChange={(e) => setNewServiceCategory(e.target.value)}
-                    placeholder="Category"
+                    required
                     className="px-3 py-2 rounded-xl bg-black/20 border border-white/10 outline-none flex-1"
-                  />
+                  >
+                    <option value="">Select Category</option>
+                    <option value="friend">Friend / Chat</option>
+                    <option value="event">Event Partner</option>
+                    <option value="travel">Travel Companion</option>
+                    <option value="study date">Study Date</option>
+                    <option value="movie">Movie Date</option>
+                    <option value="picnic">Picnic</option>
+                    <option value="restaurant">Dinner / Restaurant</option>
+                    <option value="gaming">Gaming Buddy</option>
+                  </select>
                   <input
                     type="number"
                     min="0"
@@ -821,9 +866,8 @@ function ProviderDashboard() {
                 {services.map((service) => (
                   <div
                     key={service.id}
-                    className={`rounded-2xl px-3 py-2 flex justify-between gap-3 items-center ${
-                      isDark ? "bg-white/5" : "bg-gray-50"
-                    }`}
+                    className={`rounded-2xl px-3 py-2 flex justify-between gap-3 items-center ${isDark ? "bg-white/5" : "bg-gray-50"
+                      }`}
                   >
                     <div>
                       <p className="font-semibold">{service.name}</p>
@@ -930,19 +974,18 @@ function ProviderDashboard() {
               {availability
                 .filter((slot) => slot.is_active !== false)
                 .map((slot) => (
-                <div
-                  key={slot.id}
-                  className={`flex justify-between rounded-2xl px-3 py-2 ${
-                    isDark ? "bg-white/5" : "bg-gray-50"
-                  }`}
-                >
-                  <span>
-                    <span className="font-semibold">{slot.day}</span> •{" "}
-                    {slot.start_time} – {slot.end_time}
-                  </span>
-                  <span className="text-[11px] opacity-60">Active</span>
-                </div>
-              ))}
+                  <div
+                    key={slot.id}
+                    className={`flex justify-between rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
+                      }`}
+                  >
+                    <span>
+                      <span className="font-semibold">{slot.day}</span> •{" "}
+                      {slot.start_time} – {slot.end_time}
+                    </span>
+                    <span className="text-[11px] opacity-60">Active</span>
+                  </div>
+                ))}
               {availability.length === 0 && (
                 <p className="text-xs opacity-70">
                   You have not defined any availability slots yet. Use the
@@ -966,14 +1009,12 @@ function ProviderDashboard() {
                   Total: <span className="text-sky-400">NPR {totalEarnings}</span>
                 </p>
                 {payments
-                  .filter((p) => p.status === "completed")
                   .slice(0, 10)
                   .map((p) => (
                     <div
                       key={p.id}
-                      className={`flex justify-between rounded-2xl px-3 py-2 ${
-                        isDark ? "bg-white/5" : "bg-gray-50"
-                      }`}
+                      className={`flex justify-between rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
+                        }`}
                     >
                       <div>
                         <p className="font-semibold">
@@ -984,7 +1025,7 @@ function ProviderDashboard() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-emerald-400">
+                        <p className={`font-bold ${p.status === "completed" ? "text-emerald-400" : "text-amber-400"}`}>
                           + NPR {p.amount}
                         </p>
                         <p className="text-[11px] opacity-60 capitalize">
@@ -993,11 +1034,9 @@ function ProviderDashboard() {
                       </div>
                     </div>
                   ))}
-                {payments.filter((p) => p.status === "completed").length ===
-                  0 && (
+                {payments.length === 0 && (
                   <p className="text-xs opacity-70">
-                    No completed payments yet. Once bookings are finished and
-                    marked as paid, they’ll show here.
+                    No payments yet. Once bookings are accepted, they’ll show here.
                   </p>
                 )}
               </div>
@@ -1057,7 +1096,7 @@ function ProviderDashboard() {
                   {reportTargets.length === 0 && (
                     <p className="text-[11px] opacity-70 mt-2">
                       No clients found yet. Once you receive bookings, clients
-                      will appear here.
+                      will appear here for reporting.
                     </p>
                   )}
                 </div>
@@ -1090,9 +1129,8 @@ function ProviderDashboard() {
                   {reports.map((r) => (
                     <div
                       key={r.id}
-                      className={`rounded-2xl px-3 py-2 ${
-                        isDark ? "bg-white/5" : "bg-gray-50"
-                      }`}
+                      className={`rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
+                        }`}
                     >
                       <p className="text-[11px] uppercase tracking-[0.18em] opacity-60 mb-1">
                         {r.reason.replace("_", " ")}
@@ -1103,9 +1141,21 @@ function ProviderDashboard() {
                           {r.status}
                         </span>
                       </p>
-                      <p className="text-[11px] opacity-60 line-clamp-2">
+                      {r.action_taken && r.action_taken !== 'none' && (
+                        <p className={`text-[11px] font-bold mt-1 ${r.action_taken === 'fine' || r.action_taken === 'suspension' ? 'text-red-400' : 'text-orange-400'
+                          }`}>
+                          Action Taken: <span className="uppercase tracking-widest">{r.action_taken}</span>
+                          {r.action_taken === 'fine' ? ` (NPR ${r.fine_amount})` : ''}
+                        </p>
+                      )}
+                      <p className="text-[11px] opacity-60 line-clamp-2 mt-1">
                         {r.description || "No extra description."}
                       </p>
+                      {r.admin_note && (
+                        <p className="text-[11px] font-medium text-yellow-300/80 mt-1 italic">
+                          Admin note: "{r.admin_note}"
+                        </p>
+                      )}
                     </div>
                   ))}
                   {reports.length === 0 && (
@@ -1123,9 +1173,8 @@ function ProviderDashboard() {
                   {reportsReceived.map((r) => (
                     <div
                       key={r.id}
-                      className={`rounded-2xl px-3 py-2 ${
-                        isDark ? "bg-white/5" : "bg-gray-50"
-                      }`}
+                      className={`rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
+                        }`}
                     >
                       <p className="text-[11px] uppercase tracking-[0.18em] opacity-60 mb-1">
                         {r.reason.replace("_", " ")}
@@ -1144,9 +1193,21 @@ function ProviderDashboard() {
                           {r.status}
                         </span>
                       </p>
-                      <p className="text-[11px] opacity-60 line-clamp-2">
+                      {r.action_taken && r.action_taken !== 'none' && (
+                        <p className={`text-[11px] font-bold mt-1 ${r.action_taken === 'fine' || r.action_taken === 'suspension' ? 'text-red-400' : 'text-orange-400'
+                          }`}>
+                          Action Taken: <span className="uppercase tracking-widest">{r.action_taken}</span>
+                          {r.action_taken === 'fine' ? ` (NPR ${r.fine_amount})` : ''}
+                        </p>
+                      )}
+                      <p className="text-[11px] opacity-60 line-clamp-2 mt-1">
                         {r.description || "No description was provided."}
                       </p>
+                      {r.admin_note && (
+                        <p className="text-[11px] font-medium text-yellow-300/80 mt-1 italic">
+                          Admin note: "{r.admin_note}"
+                        </p>
+                      )}
                     </div>
                   ))}
                   {reportsReceived.length === 0 && (
@@ -1170,9 +1231,8 @@ function ProviderDashboard() {
                 {reviews.map((rev) => (
                   <div
                     key={rev.id}
-                    className={`rounded-2xl px-3 py-2 ${
-                      isDark ? "bg-white/5" : "bg-gray-50"
-                    }`}
+                    className={`rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
+                      }`}
                   >
                     <div className="flex justify-between items-center mb-1">
                       <p className="font-semibold text-xs">
@@ -1247,11 +1307,10 @@ function ProviderDashboard() {
 
             {trackingError && (
               <div
-                className={`mb-4 rounded-2xl border px-4 py-3 text-xs ${
-                  isDark
-                    ? "border-red-500/40 bg-red-500/10 text-red-200"
-                    : "border-red-200 bg-red-50 text-red-700"
-                }`}
+                className={`mb-4 rounded-2xl border px-4 py-3 text-xs ${isDark
+                  ? "border-red-500/40 bg-red-500/10 text-red-200"
+                  : "border-red-200 bg-red-50 text-red-700"
+                  }`}
               >
                 {trackingError}
               </div>
@@ -1259,9 +1318,8 @@ function ProviderDashboard() {
 
             {(lastLocation || locations[0]) && (
               <div
-                className={`mb-4 rounded-2xl px-4 py-3 border ${
-                  isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"
-                }`}
+                className={`mb-4 rounded-2xl px-4 py-3 border ${isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"
+                  }`}
               >
                 <p className="text-[11px] uppercase tracking-[0.2em] opacity-60 mb-1">
                   Latest location
@@ -1294,9 +1352,8 @@ function ProviderDashboard() {
               {locations.map((loc) => (
                 <div
                   key={loc.id}
-                  className={`rounded-2xl px-3 py-2 flex justify-between ${
-                    isDark ? "bg-white/5" : "bg-gray-50"
-                  }`}
+                  className={`rounded-2xl px-3 py-2 flex justify-between ${isDark ? "bg-white/5" : "bg-gray-50"
+                    }`}
                 >
                   <div>
                     <p className="font-semibold">
@@ -1344,11 +1401,10 @@ function ProviderDashboard() {
 const SidebarItem = ({ label, active, onClick }) => (
   <button
     onClick={onClick}
-    className={`w-full text-left px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
-      active
-        ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/40"
-        : "text-gray-400 hover:bg-indigo-500/10 hover:text-white"
-    }`}
+    className={`w-full text-left px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all ${active
+      ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/40"
+      : "text-gray-400 hover:bg-indigo-500/10 hover:text-white"
+      }`}
   >
     {label}
   </button>
@@ -1356,11 +1412,10 @@ const SidebarItem = ({ label, active, onClick }) => (
 
 const OverviewStat = ({ isDark, label, value, caption }) => (
   <div
-    className={`rounded-[20px] border p-4 md:p-5 ${
-      isDark
-        ? "bg-[#020617]/80 border-indigo-500/30"
-        : "bg-white border-indigo-200 shadow-sm"
-    }`}
+    className={`rounded-[20px] border p-4 md:p-5 ${isDark
+      ? "bg-[#020617]/80 border-indigo-500/30"
+      : "bg-white border-indigo-200 shadow-sm"
+      }`}
   >
     <p className="text-[10px] uppercase tracking-[0.2em] opacity-60 mb-1">
       {label}

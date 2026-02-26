@@ -15,42 +15,67 @@ import ProviderAvailabilityPage from "./pages/providers/ProviderAvailabilityPage
 import ServiceDetail from "./pages/users/ServiceDetail";
 import FavoritesPage from "./pages/users/FavoritesPage";
 import BookingsPage from "./pages/users/BookingsPage";
+import ClientProfilePage from "./pages/users/ClientProfilePage";
 
-function App() {
-  // Pulling these inside the render ensures we check them on every route change
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem('access_token');
   const role = localStorage.getItem('role');
-  const isAuthenticated = !!token;
+  const isAuthenticated = token && token !== 'undefined' && token !== 'null';
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    // If they have a token but wrong role, send them to their respectful dashboard
+    return <Navigate to={role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  }
+
+  return children;
+};
+
+const PublicRoute = ({ children }) => {
+  const token = localStorage.getItem('access_token');
+  const role = localStorage.getItem('role');
+  const isAuthenticated = token && token !== 'undefined' && token !== 'null';
+
+  if (isAuthenticated) {
+    return <Navigate to={role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  }
+
+  return children;
+};
+
+function App() {
+  const role = localStorage.getItem('role');
 
   return (
     <Router>
       <Routes>
         <Route path="/login" element={
-          !isAuthenticated ? <LoginPage /> : (role === 'admin' ? <Navigate to="/admin" /> : <Navigate to="/dashboard" />)
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
         } />
-        
+
         <Route path="/register" element={
-          !isAuthenticated ? <RegisterPage /> : <Navigate to="/dashboard" />
+          <PublicRoute>
+            <RegisterPage />
+          </PublicRoute>
         } />
 
         <Route path="/admin" element={
-          isAuthenticated && role === 'admin' ? <AdminDashboard /> : <Navigate to="/login" />
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboard />
+          </ProtectedRoute>
         } />
 
         <Route
           path="/dashboard"
           element={
-            isAuthenticated ? (
-              role === "admin" ? (
-                <Navigate to="/admin" />
-              ) : role === "provider" ? (
-                <ProviderDashboard />
-              ) : (
-                <ClientDashboard />
-              )
-            ) : (
-              <Navigate to="/login" />
-            )
+            <ProtectedRoute allowedRoles={['client', 'provider']}>
+              {role === 'provider' ? <ProviderDashboard /> : <ClientDashboard />}
+            </ProtectedRoute>
           }
         />
 
@@ -58,54 +83,60 @@ function App() {
         <Route
           path="/provider/profile"
           element={
-            isAuthenticated && role === "provider" ? (
+            <ProtectedRoute allowedRoles={['provider']}>
               <ProviderProfilePage />
-            ) : (
-              <Navigate to="/login" />
-            )
+            </ProtectedRoute>
           }
         />
         <Route
           path="/provider/availability"
           element={
-            isAuthenticated && role === "provider" ? (
+            <ProtectedRoute allowedRoles={['provider']}>
               <ProviderAvailabilityPage />
-            ) : (
-              <Navigate to="/login" />
-            )
+            </ProtectedRoute>
           }
         />
 
+        {/* Shared Authenticated Pages */}
         <Route
           path="/services/:serviceId"
           element={
-            isAuthenticated
-              ? (role === "admin" ? <Navigate to="/admin" /> : <ServiceDetail />)
-              : <Navigate to="/login" />
+            <ProtectedRoute allowedRoles={['client', 'provider']}>
+              <ServiceDetail />
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/favorites"
           element={
-            isAuthenticated
-              ? (role === "admin" ? <Navigate to="/admin" /> : <FavoritesPage />)
-              : <Navigate to="/login" />
+            <ProtectedRoute allowedRoles={['client', 'provider']}>
+              <FavoritesPage />
+            </ProtectedRoute>
           }
         />
 
         <Route
           path="/bookings"
           element={
-            isAuthenticated
-              ? (role === "admin" ? <Navigate to="/admin" /> : <BookingsPage />)
-              : <Navigate to="/login" />
+            <ProtectedRoute allowedRoles={['client', 'provider']}>
+              <BookingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute allowedRoles={['client', 'provider']}>
+              <ClientProfilePage />
+            </ProtectedRoute>
           }
         />
 
         {/* Root Redirect */}
         <Route path="/" element={
-          <Navigate to={!isAuthenticated ? "/login" : (role === 'admin' ? "/admin" : "/dashboard")} />
+          <Navigate to="/dashboard" replace />
         } />
       </Routes>
     </Router>

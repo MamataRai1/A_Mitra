@@ -19,12 +19,12 @@ from .serializers import ProfileSerializer
 
 from .models import (
     Profile, Service, Booking, Review, Report, Payment, Availability,
-    Favorite, Message, Verification, LocationLog
+    Favorite, Message, Verification, LocationLog, Notification
 )
 from .serializers import (
     ProfileSerializer, ServiceSerializer, BookingSerializer, ReviewSerializer,
     ReportSerializer, PaymentSerializer, AvailabilitySerializer,
-    FavoriteSerializer, MessageSerializer, VerificationSerializer, LocationLogSerializer
+    FavoriteSerializer, MessageSerializer, VerificationSerializer, LocationLogSerializer, NotificationSerializer
 )
 
 # -------------------- HOME --------------------
@@ -83,10 +83,44 @@ class BookingList(generics.ListCreateAPIView):
 
         return Booking.objects.all()
 
+    def perform_create(self, serializer):
+        booking = serializer.save()
+        # Notify Provider about new booking
+        Notification.objects.create(
+            recipient=booking.service.provider,
+            title="New Booking Request",
+            message=f"{booking.client.user.username} has requested a booking for {booking.service.name}."
+        )
+
 class BookingDetail(generics.RetrieveUpdateAPIView):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        booking_instance = self.get_object()
+        old_status = booking_instance.status
+        booking = serializer.save()
+        
+        # If status changed, notify the client
+        if old_status != booking.status:
+            Notification.objects.create(
+                recipient=booking.client,
+                title="Booking Status Updated",
+                message=f"Your booking for {booking.service.name} is now {booking.status}."
+            )
+            
+            # Auto-generate a Payment pending when a booking is accepted/confirmed
+            if booking.status == 'confirmed':
+                from .models import Payment
+                Payment.objects.get_or_create(
+                    booking=booking,
+                    defaults={
+                        'amount': booking.service.price,
+                        'method': 'cash',
+                        'status': 'pending'
+                    }
+                )
 
 # -------------------- Reviews --------------------
 class ReviewList(generics.ListCreateAPIView):
@@ -94,10 +128,43 @@ class ReviewList(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class ReviewDetail(generics.RetrieveDestroyAPIView):
+class ReviewDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Review.objects.all()
     serializer_class = ReviewSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        review = self.get_object()
+        profile = Profile.objects.get(user=self.request.user)
+        if review.booking.service.provider.id != profile.id and profile.role != 'admin':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only the provider of this service can respond to this review.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        profile = Profile.objects.get(user=self.request.user)
+        if profile.role != 'admin':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only admins can delete reviews.")
+        instance.delete()
+
+# -------------------- Notifications --------------------
+class NotificationList(generics.ListCreateAPIView):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        profile = Profile.objects.get(user=self.request.user)
+        return Notification.objects.filter(recipient=profile).order_by('-created_at')
+
+class NotificationDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        profile = Profile.objects.get(user=self.request.user)
+        return Notification.objects.filter(recipient=profile)
 
 # -------------------- Reports (Safety Alerts) --------------------
 class ReportList(generics.ListCreateAPIView):
@@ -114,19 +181,53 @@ class ReportList(generics.ListCreateAPIView):
 class ReportDetail(generics.RetrieveUpdateAPIView):
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
-    # Only admins should change report status / notes
+    # Only admins should change report status / notes / actions
     permission_classes = [permissions.IsAdminUser]
+
+    def perform_update(self, serializer):
+        report = serializer.save()
+        
+        # Look at the new action_taken to apply side-effects
+        if report.action_taken == 'suspension':
+            reported_prof = report.reported_user
+            reported_prof.is_suspended = True
+            reported_prof.save()
+        elif report.action_taken == 'warning' or report.action_taken == 'fine':
+            # Automatically un-suspend if admin chose to downgrade the punishment
+            reported_prof = report.reported_user
+            if reported_prof.is_suspended:
+                reported_prof.is_suspended = False
+                reported_prof.save()
 
 # -------------------- Payments --------------------
 class PaymentList(generics.ListCreateAPIView):
-    queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        profile = Profile.objects.get(user=self.request.user)
+        if profile.role == 'admin' or self.request.user.is_staff:
+            return Payment.objects.all().order_by('-id')
+        if profile.role == 'provider':
+            return Payment.objects.filter(booking__service__provider=profile).order_by('-id')
+        return Payment.objects.filter(booking__client=profile).order_by('-id')
 
 class PaymentDetail(generics.RetrieveUpdateAPIView):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_update(self, serializer):
+        payment_instance = self.get_object()
+        old_status = payment_instance.status
+        payment = serializer.save()
+
+        if old_status != 'completed' and payment.status == 'completed':
+            Notification.objects.create(
+                recipient=payment.booking.service.provider,
+                title="Payment Received",
+                message=f"Payment of NPR {payment.amount} for {payment.booking.service.name} has been completed."
+            )
 
 # -------------------- Availability --------------------
 class AvailabilityList(generics.ListCreateAPIView):

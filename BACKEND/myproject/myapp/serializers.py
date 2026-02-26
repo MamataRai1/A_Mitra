@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Profile, Service, Booking, Review, Report, Payment,
-    Availability, Favorite, Message, Verification, LocationLog
+    Availability, Favorite, Notification, Message, Verification, LocationLog
 )
 
 # -------------------- User Serializer --------------------
@@ -15,6 +15,7 @@ class UserSerializer(serializers.ModelSerializer):
 # -------------------- Profile Serializer --------------------
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    available_days = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
@@ -22,8 +23,11 @@ class ProfileSerializer(serializers.ModelSerializer):
             'id', 'user', 'role', 'phone_number', 'address',
             'bio', 'skills',
             'profile_pic', 'kyc_id', 'is_verified',
-            'is_suspended', 'trust_score', 'created_at'
+            'is_suspended', 'trust_score', 'created_at', 'available_days'
         ]
+
+    def get_available_days(self, obj):
+        return [a.day.lower() for a in obj.availability.all()]
 
 
 # -------------------- Register Serializer (Updated for KYC) --------------------
@@ -74,7 +78,7 @@ class ServiceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Service
-        fields = ['id', 'provider', 'provider_id', 'name', 'description', 'price', 'created_at', 'updated_at', 'is_active']
+        fields = ['id', 'provider', 'provider_id', 'name', 'description', 'price', 'category', 'created_at', 'updated_at', 'is_active']
 
 
 # -------------------- Booking Serializer --------------------
@@ -114,7 +118,13 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['id', 'booking', 'booking_id', 'rating', 'comment', 'created_at']
+        fields = ['id', 'booking', 'booking_id', 'rating', 'comment', 'provider_response', 'created_at']
+
+# -------------------- Notification Serializer --------------------
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'recipient', 'title', 'message', 'is_read', 'created_at']
 
 
 # -------------------- Report Serializer (Red Flag Safety) --------------------
@@ -156,6 +166,8 @@ class ReportSerializer(serializers.ModelSerializer):
             'reason',
             'description',
             'status',
+            'action_taken',
+            'fine_amount',
             'admin_note',
             'created_at',
         ]

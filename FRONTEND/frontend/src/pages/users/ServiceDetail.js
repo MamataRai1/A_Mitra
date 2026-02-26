@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import ClientNavbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
 import API from "../../api";
@@ -7,6 +7,7 @@ import ReportModal from "../../components/common/ReportModal";
 
 function ServiceDetail() {
   const { serviceId } = useParams();
+  const navigate = useNavigate();
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -120,8 +121,13 @@ function ServiceDetail() {
       });
 
       setBookingMessage(
-        `Booking confirmed for ${hours} hour(s). You will pay NPR ${totalAmount}.`
+        `Booking confirmed for ${hours} hour(s). Redirecting to your bookings...`
       );
+
+      setTimeout(() => {
+        navigate('/bookings');
+      }, 1500);
+
     } catch (err) {
       console.error("Booking or payment failed", err);
       setBookingMessage("Could not complete booking. Please try again.");
@@ -135,9 +141,14 @@ function ServiceDetail() {
     service?.provider?.user?.first_name ||
     "Provider";
 
-  const providerAvatar = service?.provider?.profile_pic
-    ? `http://127.0.0.1:8000${service.provider.profile_pic}`
-    : null;
+  let providerAvatar = service?.provider?.profile_pic;
+  if (providerAvatar) {
+    if (!providerAvatar.startsWith('http')) {
+      providerAvatar = `http://127.0.0.1:8000${providerAvatar.startsWith('/media/') ? '' : '/media/'}${providerAvatar.replace(/^\/?media\//, '')}`;
+    }
+  } else {
+    providerAvatar = null;
+  }
 
   return (
     <div style={{ background: "#f8f6ff", minHeight: "100vh" }}>

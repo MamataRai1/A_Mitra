@@ -12,15 +12,14 @@ const AdminUserProfileModal = ({ isDark, profile, onClose }) => {
     (user?.first_name || user?.last_name) &&
     `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim();
 
-  const avatarSrc = profile_pic ? `${MEDIA_BASE_URL}${profile_pic}` : null;
-  const kycSrc = kyc_id ? `${MEDIA_BASE_URL}${kyc_id}` : null;
+  const avatarSrc = profile_pic ? (profile_pic.startsWith('http') ? profile_pic : `${MEDIA_BASE_URL}${profile_pic.startsWith('/media/') ? '' : '/media/'}${profile_pic.replace('/media/', '')}`) : null;
+  const kycSrc = kyc_id ? (kyc_id.startsWith('http') ? kyc_id : `${MEDIA_BASE_URL}${kyc_id.startsWith('/media/') ? '' : '/media/'}${kyc_id.replace('/media/', '')}`) : null;
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
       <div
-        className={`max-w-4xl w-full rounded-[32px] overflow-hidden ${
-          isDark ? 'bg-[#1a1625] text-white' : 'bg-white text-gray-900'
-        } shadow-2xl border border-white/10`}
+        className={`max-w-4xl w-full rounded-[32px] overflow-hidden ${isDark ? 'bg-[#1a1625] text-white' : 'bg-white text-gray-900'
+          } shadow-2xl border border-white/10`}
       >
         <div className="flex justify-between items-center px-6 py-4 border-b border-white/10">
           <div>
@@ -64,13 +63,12 @@ const AdminUserProfileModal = ({ isDark, profile, onClose }) => {
               <div className="flex items-center justify-between">
                 <span className="opacity-60">Role</span>
                 <span
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    role === 'provider'
+                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${role === 'provider'
                       ? 'bg-amber-500/10 text-amber-400'
                       : role === 'admin'
-                      ? 'bg-emerald-500/10 text-emerald-400'
-                      : 'bg-indigo-500/10 text-indigo-400'
-                  }`}
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : 'bg-indigo-500/10 text-indigo-400'
+                    }`}
                 >
                   {role}
                 </span>
@@ -79,11 +77,10 @@ const AdminUserProfileModal = ({ isDark, profile, onClose }) => {
               <div className="flex items-center justify-between">
                 <span className="opacity-60">KYC</span>
                 <span
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    is_verified
+                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${is_verified
                       ? 'bg-emerald-500/10 text-emerald-400'
                       : 'bg-yellow-500/10 text-yellow-400'
-                  }`}
+                    }`}
                 >
                   {is_verified ? 'Verified' : 'Pending'}
                 </span>
@@ -92,11 +89,10 @@ const AdminUserProfileModal = ({ isDark, profile, onClose }) => {
               <div className="flex items-center justify-between">
                 <span className="opacity-60">Status</span>
                 <span
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    is_suspended
+                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${is_suspended
                       ? 'bg-red-500/10 text-red-400'
                       : 'bg-emerald-500/10 text-emerald-400'
-                  }`}
+                    }`}
                 >
                   {is_suspended ? 'Suspended' : 'Active'}
                 </span>
@@ -122,9 +118,8 @@ const AdminUserProfileModal = ({ isDark, profile, onClose }) => {
                 Contact
               </p>
               <div
-                className={`rounded-2xl p-4 ${
-                  isDark ? 'bg-white/5' : 'bg-gray-50'
-                } space-y-2`}
+                className={`rounded-2xl p-4 ${isDark ? 'bg-white/5' : 'bg-gray-50'
+                  } space-y-2`}
               >
                 <div className="flex justify-between">
                   <span className="opacity-70 text-xs">Phone</span>
@@ -151,9 +146,8 @@ const AdminUserProfileModal = ({ isDark, profile, onClose }) => {
 
             {kycSrc ? (
               <div
-                className={`rounded-3xl overflow-hidden border ${
-                  isDark ? 'border-white/10' : 'border-gray-200'
-                } shadow-lg`}
+                className={`rounded-3xl overflow-hidden border ${isDark ? 'border-white/10' : 'border-gray-200'
+                  } shadow-lg`}
               >
                 <img
                   src={kycSrc}
@@ -166,9 +160,8 @@ const AdminUserProfileModal = ({ isDark, profile, onClose }) => {
               </div>
             ) : (
               <div
-                className={`rounded-3xl p-4 text-xs opacity-60 border-dashed border ${
-                  isDark ? 'border-white/20' : 'border-gray-300'
-                }`}
+                className={`rounded-3xl p-4 text-xs opacity-60 border-dashed border ${isDark ? 'border-white/20' : 'border-gray-300'
+                  }`}
               >
                 No KYC image attached for this user yet.
               </div>

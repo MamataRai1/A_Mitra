@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../../api';
 import {
-  FiUsers,
-  FiShield,
-  FiAlertTriangle,
-  FiTrendingUp,
-  FiSettings,
-  FiLogOut,
-  FiX,
-  FiCalendar,
-  FiCreditCard,
-  FiBarChart2,
-  FiStar,
+    FiUsers,
+    FiShield,
+    FiAlertTriangle,
+    FiTrendingUp,
+    FiSettings,
+    FiLogOut,
+    FiX,
+    FiCalendar,
+    FiCreditCard,
+    FiBarChart2,
+    FiStar,
 } from 'react-icons/fi';
 import AdminOverviewSection from './AdminOverviewSection';
 import AdminKycSection from './AdminKycSection';
@@ -36,7 +36,7 @@ const AdminDashboard = () => {
     const [payments, setPayments] = useState([]);
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
-  const [selectedProfile, setSelectedProfile] = useState(null);
+    const [selectedProfile, setSelectedProfile] = useState(null);
 
     const isDark = theme === 'dark';
 
@@ -105,14 +105,18 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleReportStatus = async (reportId, newStatus) => {
+    const handleReportStatus = async (reportId, newStatus, actionTaken = 'none', amount = 0) => {
         try {
-            const res = await API.patch(`/reports/${reportId}/`, { status: newStatus });
+            const res = await API.patch(`/reports/${reportId}/`, {
+                status: newStatus,
+                action_taken: actionTaken,
+                fine_amount: amount
+            });
             setReports(prev =>
                 prev.map(r => (r.id === reportId ? { ...r, ...res.data } : r))
             );
         } catch (err) {
-            alert("Could not update report status.");
+            alert("Could not update report status. Ensure backend is running and you have admin privileges.");
         }
     };
 
@@ -121,7 +125,7 @@ const AdminDashboard = () => {
     const totalClients = allUsers.filter(u => u.role === 'client').length;
     const totalBookings = bookings.length;
     const totalRevenue = payments
-        .filter(p => p.status === 'completed')
+        .filter(p => p.status === 'completed' || p.status === 'pending')
         .reduce((sum, p) => sum + Number(p.amount || 0), 0)
         .toFixed(2);
     const pendingReports = reports.filter(r => r.status === 'pending').length;
@@ -136,7 +140,7 @@ const AdminDashboard = () => {
 
     return (
         <div className={`min-h-screen flex ${isDark ? 'bg-[#0f0c1d] text-white' : 'bg-gray-100 text-gray-900'} transition-all duration-500`}>
-            
+
             {/* --- SIDEBAR --- */}
             <aside className={`w-64 border-r ${isDark ? 'bg-[#1a1625]/80 border-white/10' : 'bg-white border-gray-200'} backdrop-blur-xl p-6 flex flex-col fixed h-full`}>
                 <div className="flex items-center gap-3 mb-10 px-2">
@@ -216,10 +220,10 @@ const AdminDashboard = () => {
                     </div>
                     <div className="flex items-center gap-3">
                         <button
-                          onClick={handleLogout}
-                          className="px-4 py-2 rounded-2xl text-xs font-bold border border-red-400/40 text-red-400 hover:bg-red-500/10 transition-all"
+                            onClick={handleLogout}
+                            className="px-4 py-2 rounded-2xl text-xs font-bold border border-red-400/40 text-red-400 hover:bg-red-500/10 transition-all"
                         >
-                          Logout
+                            Logout
                         </button>
                         <button onClick={() => setTheme(isDark ? 'light' : 'dark')} className="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-500 flex items-center justify-center border border-indigo-500/20 hover:bg-indigo-600 hover:text-white transition-all shadow-xl">
                             {isDark ? '☀️' : '🌙'}
@@ -229,85 +233,85 @@ const AdminDashboard = () => {
 
                 {/* --- OVERVIEW / KYC / USERS / REPORTS / SETTINGS --- */}
                 {activeTab === 'overview' && (
-                  <AdminOverviewSection
-                    isDark={isDark}
-                    pendingUsers={pendingUsers}
-                    onViewId={setSelectedIdImage}
-                    onAction={handleAction}
-                    users={allUsers}
-                    totalClients={totalClients}
-                    totalProviders={totalProviders}
-                    onGoToManageUsers={() => setActiveTab('manage_users')}
-                    onSelectUser={(profile) => setSelectedProfile(profile)}
-                  />
+                    <AdminOverviewSection
+                        isDark={isDark}
+                        pendingUsers={pendingUsers}
+                        onViewId={setSelectedIdImage}
+                        onAction={handleAction}
+                        users={allUsers}
+                        totalClients={totalClients}
+                        totalProviders={totalProviders}
+                        onGoToManageUsers={() => setActiveTab('manage_users')}
+                        onSelectUser={(profile) => setSelectedProfile(profile)}
+                    />
                 )}
 
                 {activeTab === 'kyc' && (
-                  <AdminKycSection
-                    isDark={isDark}
-                    pendingUsers={pendingUsers}
-                    onViewId={setSelectedIdImage}
-                    onAction={handleAction}
-                  />
+                    <AdminKycSection
+                        isDark={isDark}
+                        pendingUsers={pendingUsers}
+                        onViewId={setSelectedIdImage}
+                        onAction={handleAction}
+                    />
                 )}
 
                 {activeTab === 'manage_users' && (
-                  <AdminUsersSection
-                    isDark={isDark}
-                    users={allUsers}
-                    totalClients={totalClients}
-                    totalProviders={totalProviders}
-                    onSelectUser={(profile) => setSelectedProfile(profile)}
-                    onToggleSuspend={(userId, isSuspended) =>
-                      handleAction(userId, isSuspended ? 'unsuspend' : 'suspend')
-                    }
-                  />
+                    <AdminUsersSection
+                        isDark={isDark}
+                        users={allUsers}
+                        totalClients={totalClients}
+                        totalProviders={totalProviders}
+                        onSelectUser={(profile) => setSelectedProfile(profile)}
+                        onToggleSuspend={(userId, isSuspended) =>
+                            handleAction(userId, isSuspended ? 'unsuspend' : 'suspend')
+                        }
+                    />
                 )}
 
                 {activeTab === 'bookings' && (
-                  <AdminBookingsSection
-                    isDark={isDark}
-                    bookings={bookings}
-                  />
+                    <AdminBookingsSection
+                        isDark={isDark}
+                        bookings={bookings}
+                    />
                 )}
 
                 {activeTab === 'payments' && (
-                  <AdminPaymentsSection
-                    isDark={isDark}
-                    payments={payments}
-                  />
+                    <AdminPaymentsSection
+                        isDark={isDark}
+                        payments={payments}
+                    />
                 )}
 
                 {activeTab === 'reviews' && (
-                  <AdminReviewsSection
-                    isDark={isDark}
-                    reviews={[]} // hook up when reviews API is integrated on admin side
-                    onDelete={() => {}}
-                  />
+                    <AdminReviewsSection
+                        isDark={isDark}
+                        reviews={[]} // hook up when reviews API is integrated on admin side
+                        onDelete={() => { }}
+                    />
                 )}
 
                 {activeTab === 'analytics' && (
-                  <AdminAnalyticsSection
-                    isDark={isDark}
-                    totalUsers={totalUsers}
-                    totalProviders={totalProviders}
-                    totalClients={totalClients}
-                    totalBookings={totalBookings}
-                    totalRevenue={totalRevenue}
-                  />
+                    <AdminAnalyticsSection
+                        isDark={isDark}
+                        totalUsers={totalUsers}
+                        totalProviders={totalProviders}
+                        totalClients={totalClients}
+                        totalBookings={totalBookings}
+                        totalRevenue={totalRevenue}
+                    />
                 )}
 
                 {activeTab === 'reports' && (
-                  <AdminReportsSection
-                    isDark={isDark}
-                    reports={reports}
-                    pendingCount={pendingReports}
-                    onChangeStatus={handleReportStatus}
-                  />
+                    <AdminReportsSection
+                        isDark={isDark}
+                        reports={reports}
+                        pendingCount={pendingReports}
+                        onChangeStatus={handleReportStatus}
+                    />
                 )}
 
                 {activeTab === 'settings' && (
-                  <AdminSettingsSection isDark={isDark} />
+                    <AdminSettingsSection isDark={isDark} />
                 )}
             </main>
 
@@ -315,15 +319,15 @@ const AdminDashboard = () => {
             {selectedIdImage && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
                     <div className={`relative max-w-4xl w-full p-2 rounded-[40px] ${isDark ? 'bg-[#2d2739]' : 'bg-white'}`}>
-                        <button 
+                        <button
                             onClick={() => setSelectedIdImage(null)}
                             className="absolute -top-4 -right-4 w-12 h-12 bg-red-500 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform"
                         >
                             <FiX size={24} />
                         </button>
-                        <img 
+                        <img
                             src={selectedIdImage}
-                            alt="Verification Document" 
+                            alt="Verification Document"
                             className="w-full h-auto max-h-[80vh] object-contain rounded-[32px] shadow-2xl border-4 border-white/10"
                         />
                         <div className="p-6 text-center">
@@ -335,11 +339,11 @@ const AdminDashboard = () => {
 
             {/* --- USER PROFILE DETAIL MODAL --- */}
             {selectedProfile && (
-              <AdminUserProfileModal
-                isDark={isDark}
-                profile={selectedProfile}
-                onClose={() => setSelectedProfile(null)}
-              />
+                <AdminUserProfileModal
+                    isDark={isDark}
+                    profile={selectedProfile}
+                    onClose={() => setSelectedProfile(null)}
+                />
             )}
         </div>
     );

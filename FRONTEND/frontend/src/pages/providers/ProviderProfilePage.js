@@ -250,7 +250,91 @@ function ProviderProfilePage() {
                 fontSize: "14px",
                 resize: "vertical",
               }}
+              placeholder="e.g. Kathmandu, Patan, Bhaktapur"
             />
+          </div>
+
+          {/* ADD OVERVIEW INFO */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "16px",
+            marginTop: "16px",
+            paddingTop: "16px",
+            borderTop: "1px solid rgba(255,255,255,0.1)"
+          }}>
+            <div style={{
+              background: "rgba(79, 70, 229, 0.1)",
+              padding: "16px",
+              borderRadius: "16px",
+              border: "1px solid rgba(79, 70, 229, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center"
+            }}>
+              <span style={{ fontSize: "10px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: "#818cf8", marginBottom: "4px" }}>Account Info</span>
+              <div style={{ fontSize: "14px", fontWeight: 600, color: "white" }}>
+                Username: <span style={{ color: "#a5b4fc" }}>@{profile?.user?.username}</span>
+              </div>
+              <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginTop: "4px" }}>
+                User ID: #{profile?.user?.id} <br />
+                Joined: {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
+              </div>
+            </div>
+
+            <div style={{
+              background: "rgba(16, 185, 129, 0.1)",
+              padding: "16px",
+              borderRadius: "16px",
+              border: "1px solid rgba(16, 185, 129, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center"
+            }}>
+              <span style={{ fontSize: "10px", fontWeight: 900, textTransform: "uppercase", letterSpacing: "1px", color: "#34d399", marginBottom: "4px" }}>KYC Verification</span>
+              {profile?.kyc_id ? (
+                <div>
+                  <div style={{ fontSize: "14px", fontWeight: 600, color: "white", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ color: "#34d399" }}>✓</span> Document Uploaded
+                  </div>
+                  <a
+                    href={profile.kyc_id.startsWith('http') ? profile.kyc_id : `http://127.0.0.1:8000${profile.kyc_id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "block",
+                      marginTop: "12px",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                      position: "relative"
+                    }}
+                    title="Click to view full size"
+                  >
+                    <img
+                      src={profile.kyc_id.startsWith('http') ? profile.kyc_id : `http://127.0.0.1:8000${profile.kyc_id}`}
+                      alt="KYC Registration Document"
+                      style={{
+                        width: "100%",
+                        height: "100px",
+                        objectFit: "cover",
+                        opacity: 0.8,
+                        transition: "opacity 0.2s"
+                      }}
+                      onMouseOver={e => e.currentTarget.style.opacity = 1}
+                      onMouseOut={e => e.currentTarget.style.opacity = 0.8}
+                    />
+                  </a>
+                </div>
+              ) : (
+                <div style={{ fontSize: "14px", fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>No KYC Document Found</div>
+              )}
+              <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginTop: "8px" }}>
+                Status: <strong style={{ color: profile?.is_verified ? "#34d399" : "#fbbf24" }}>
+                  {profile?.is_verified ? "Verified" : "Pending Approval"}
+                </strong>
+              </div>
+            </div>
           </div>
 
           <button

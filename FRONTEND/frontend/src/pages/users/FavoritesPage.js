@@ -65,6 +65,18 @@ function FavoritesPage() {
               fav.service?.provider?.user?.username ||
               fav.provider?.user?.username ||
               "Provider";
+
+            // Safe Image parsing
+            let pic = fav.service?.provider?.profile_pic || fav.provider?.profile_pic || null;
+            let avatarUrl = pic;
+            if (pic) {
+              if (!pic.startsWith("http")) {
+                avatarUrl = `http://127.0.0.1:8000${pic.startsWith('/media/') ? '' : '/media/'}${pic.replace(/^\/?media\//, '')}`;
+              }
+            } else {
+              avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(providerName)}&backgroundColor=e2e8f0`;
+            }
+
             return (
               <div
                 key={fav.id}
@@ -75,10 +87,16 @@ function FavoritesPage() {
                   boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
                 }}
               >
-                <h3 style={{ marginBottom: "6px" }}>{serviceName}</h3>
-                <p style={{ color: "#555", marginBottom: "12px" }}>
-                  by <strong>{providerName}</strong>
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
+                  <img src={avatarUrl} alt={providerName} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }} />
+                  <div>
+                    <h3 style={{ marginBottom: "2px", fontSize: "16px" }}>{serviceName}</h3>
+                    <p style={{ color: "#555", fontSize: "14px", margin: 0 }}>
+                      by <strong>{providerName}</strong>
+                    </p>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => handleRemove(fav.id)}
                   style={{
@@ -89,6 +107,7 @@ function FavoritesPage() {
                     color: "white",
                     fontWeight: "600",
                     cursor: "pointer",
+                    width: '100%'
                   }}
                 >
                   Remove

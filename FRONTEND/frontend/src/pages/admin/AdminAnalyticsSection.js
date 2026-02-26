@@ -38,7 +38,7 @@ const AdminAnalyticsSection = ({
           <p className={labelClass}>Revenue</p>
           <p className="text-2xl font-black">NPR {totalRevenue}</p>
           <p className="text-xs opacity-60 mt-1">
-            Sum of completed payment records
+            Sum of confirmed & completed bookings
           </p>
         </div>
       </div>

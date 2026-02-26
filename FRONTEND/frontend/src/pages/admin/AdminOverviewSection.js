@@ -101,28 +101,36 @@ const AdminOverviewSection = ({
           </div>
 
           <div className="mt-4 border-t border-white/5 pt-4 space-y-2 text-sm">
-            {clients.slice(0, 6).map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center justify-between py-2 px-3 rounded-2xl hover:bg-indigo-500/5 transition-colors cursor-pointer"
-                onClick={() => onSelectUser && onSelectUser(user)}
-              >
-                <div>
-                  <div className="font-semibold">{user.user?.username}</div>
-                  <div className="text-xs opacity-60">{user.user?.email}</div>
-                </div>
-                <div className="text-right space-y-1">
-                  <span className="block text-[10px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-black uppercase tracking-widest">
-                    {user.is_verified ? 'KYC Done' : 'KYC Pending'}
-                  </span>
-                  {user.is_suspended && (
-                    <span className="block text-[10px] px-3 py-1 rounded-full bg-red-500/10 text-red-400 font-black uppercase tracking-widest">
-                      Suspended
+            {clients.slice(0, 6).map((user) => {
+              const clientPic =
+                user.profile_pic
+                  ? (user.profile_pic.startsWith('http')
+                    ? user.profile_pic
+                    : `http://127.0.0.1:8000${user.profile_pic.startsWith('/media/') ? '' : '/media/'}${user.profile_pic.replace(/^\/?media\//, '')}`)
+                  : null;
+              return (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between py-2 px-3 rounded-2xl hover:bg-indigo-500/5 transition-colors cursor-pointer"
+                  onClick={() => onSelectUser && onSelectUser(user)}
+                >
+                  <div>
+                    <div className="font-semibold">{user.user?.username}</div>
+                    <div className="text-xs opacity-60">{user.user?.email}</div>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <span className="block text-[10px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-black uppercase tracking-widest">
+                      {user.is_verified ? 'KYC Done' : 'KYC Pending'}
                     </span>
-                  )}
+                    {user.is_suspended && (
+                      <span className="block text-[10px] px-3 py-1 rounded-full bg-red-500/10 text-red-400 font-black uppercase tracking-widest">
+                        Suspended
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {clients.length === 0 && (
               <p className="text-xs opacity-60">
@@ -140,24 +148,25 @@ const AdminOverviewSection = ({
               Manage users
             </button>
           )}
-        </div>
-      </div>
 
-      {/* Bottom: KYC queue preview stays here to keep safety in focus */}
-      <div className={cardBase}>
-        <div className="mb-4">
-          <p className={sectionLabel}>Identity & Safety</p>
-          <h2 className="text-xl font-bold">KYC Requests in Review</h2>
-          <p className="text-xs opacity-70 mt-1">
-            Quickly scan pending verifications. Open the KYC tab for full tools.
-          </p>
         </div>
-        <KycQueue
-          isDark={isDark}
-          pendingUsers={pendingUsers}
-          onViewId={onViewId}
-          onAction={onAction}
-        />
+
+        {/* Bottom: KYC queue preview stays here to keep safety in focus */}
+        <div className={cardBase}>
+          <div className="mb-4">
+            <p className={sectionLabel}>Identity & Safety</p>
+            <h2 className="text-xl font-bold">KYC Requests in Review</h2>
+            <p className="text-xs opacity-70 mt-1">
+              Quickly scan pending verifications. Open the KYC tab for full tools.
+            </p>
+          </div>
+          <KycQueue
+            isDark={isDark}
+            pendingUsers={pendingUsers}
+            onViewId={onViewId}
+            onAction={onAction}
+          />
+        </div>
       </div>
     </div>
   );

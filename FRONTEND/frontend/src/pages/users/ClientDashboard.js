@@ -7,23 +7,35 @@ import API from "../../api";
 
 function ClientDashboard() {
   const [services, setServices] = useState([]);
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState({
     search: "",
     serviceType: "",
+    date: "",
   });
   const [sortBy, setSortBy] = useState("relevance"); // relevance | priceLow | priceHigh
 
   const username = localStorage.getItem("username") || "friend";
 
   useEffect(() => {
-    const loadServices = async () => {
+    const loadData = async () => {
       try {
-        const res = await API.get("/services/");
-        setServices(res.data || []);
+        const [servRes, bookRes] = await Promise.all([
+          API.get("/services/"),
+          // Fetch bookings for the logged-in user
+          API.get("/bookings/").catch(() => ({ data: [] }))
+        ]);
+        setServices(servRes.data || []);
+
+        // Filter bookings to only show upcoming/active ones on the dashboard
+        const activeBookings = (bookRes.data || []).filter(
+          (b) => b.status === "pending" || b.status === "confirmed"
+        );
+        setBookings(activeBookings);
       } catch (err) {
-        console.error("Failed to load services", err);
+        console.error("Failed to load dashboard data", err);
         setError(
           "Unable to load companions. Please check if the backend is running."
         );
@@ -31,7 +43,7 @@ function ClientDashboard() {
         setLoading(false);
       }
     };
-    loadServices();
+    loadData();
   }, []);
 
   const handleFiltersChange = (next) => {
@@ -55,31 +67,45 @@ function ClientDashboard() {
 
   const filteredServices = useMemo(() => {
     let result = [...services];
-    const query = filters.search.trim().toLowerCase();
-    const type = filters.serviceType.trim().toLowerCase();
+    const query = (filters.search || "").trim().toLowerCase();
+    const type = (filters.serviceType || "").trim().toLowerCase();
+    const searchDate = filters.date || "";
 
+    // Filter by Search text (checks service name, provider username, or provider address/location)
     if (query) {
       result = result.filter((s) => {
         const name = (s.name || "").toLowerCase();
-        const desc = (s.description || "").toLowerCase();
-        const provider =
-          (s.provider?.user?.username ||
-            s.provider?.user?.first_name ||
-            ""
-          ).toLowerCase();
+        const address = (s.provider?.address || "").toLowerCase();
+        const providerName = (s.provider?.user?.username || s.provider?.user?.first_name || "").toLowerCase();
         return (
           name.includes(query) ||
-          desc.includes(query) ||
-          provider.includes(query)
+          address.includes(query) ||
+          providerName.includes(query)
         );
       });
     }
 
+    // Filter by Service Type / Category dropdown
     if (type) {
-      const cat = type;
       result = result.filter((s) =>
-        (s.category || "").toLowerCase().includes(cat)
+        (s.category || "").toLowerCase().includes(type)
       );
+    }
+
+    // Filter by Availability Date
+    if (searchDate) {
+      try {
+        const d = new Date(searchDate);
+        if (!isNaN(d.getTime())) {
+          const selectedDayName = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          result = result.filter((s) => {
+            const availableDays = s.provider?.available_days || [];
+            return availableDays.includes(selectedDayName);
+          });
+        }
+      } catch (err) {
+        console.error("Invalid date filter", err);
+      }
     }
 
     if (sortBy === "priceLow") {
@@ -95,20 +121,22 @@ function ClientDashboard() {
     return result;
   }, [services, filters, sortBy]);
 
+  const isSearching = !!(filters.search?.trim() || filters.serviceType?.trim() || filters.date);
+
   return (
-    <div className="min-h-screen bg-[#050816] text-white">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       <ClientNavbar />
 
       {/* Hero */}
       <header className="px-6 md:px-10 pt-8 pb-6 md:pb-10 max-w-6xl mx-auto">
-        <div className="rounded-[26px] bg-gradient-to-r from-indigo-500/20 via-purple-500/10 to-sky-500/10 border border-indigo-500/40 px-6 md:px-10 py-6 md:py-8 shadow-[0_18px_60px_rgba(15,23,42,0.65)]">
-          <p className="text-[11px] tracking-[0.24em] uppercase font-black text-indigo-200/80 mb-2">
+        <div className="rounded-[26px] bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 px-6 md:px-10 py-6 md:py-8 shadow-sm">
+          <p className="text-[11px] tracking-[0.24em] uppercase font-black text-indigo-600 mb-2">
             Companion Command Center
           </p>
-          <h1 className="text-2xl md:text-3xl font-black mb-2">
+          {/* <h1 className="text-2xl md:text-3xl font-black mb-2">
             Welcome back, {username}.
-          </h1>
-          <p className="text-xs md:text-sm text-indigo-100/90 max-w-2xl">
+          </h1> */}
+          <p className="text-xs md:text-sm text-gray-600 max-w-2xl">
             Discover trusted companions for movies, city walks, study sessions,
             and more — all in one place.
           </p>
@@ -124,61 +152,96 @@ function ClientDashboard() {
         />
       </section>
 
+      {/* Upcoming Bookings Widget */}
+      {!isSearching && bookings.length > 0 && (
+        <section className="max-w-6xl mx-auto px-6 md:px-10 mb-10">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <span className="text-2xl">📅</span> Upcoming Dates
+            </h2>
+            <a href="/bookings" className="text-sm font-bold text-indigo-500 hover:text-indigo-400">View all</a>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bookings.slice(0, 3).map((b) => {
+              const date = b.booking_date ? new Date(b.booking_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : "N/A";
+              return (
+                <div key={b.id} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex flex-col justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900">{b.service?.name}</h3>
+                    <p className="text-xs text-gray-500 mb-2">with {b.service?.provider?.user?.username || "Provider"}</p>
+                    <p className="text-xs font-semibold text-indigo-600 mb-3">{date}</p>
+                  </div>
+                  <div>
+                    <span className={`px-2.5 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider ${b.status === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                      {b.status === 'confirmed' ? 'Approved' : b.status}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Recommended row */}
       <main className="max-w-6xl mx-auto px-6 md:px-10 pb-10 space-y-8">
-        <section>
-          <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-lg md:text-xl font-bold">
-                Recommended for you
-              </h2>
-              <p className="text-xs opacity-70">
-                A quick preview of companions you might like.
+        {/* Recommended row (only show if NOT searching) */}
+        {!isSearching && (
+          <section>
+            <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-lg md:text-xl font-bold">
+                  Recommended for you
+                </h2>
+                <p className="text-xs opacity-70">
+                  A quick preview of companions you might like.
+                </p>
+              </div>
+              <p className="text-[11px] opacity-60">
+                Showing {recommendedServices.length} of {services.length} services
               </p>
             </div>
-            <p className="text-[11px] opacity-60">
-              Showing {recommendedServices.length} of {services.length} services
-            </p>
-          </div>
 
-          {loading && (
-            <div className="flex gap-4 overflow-hidden">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={i}
-                  className="w-64 h-40 rounded-2xl bg-white/5 border border-white/10 animate-pulse"
-                />
-              ))}
-            </div>
-          )}
+            {loading && (
+              <div className="flex gap-4 overflow-hidden">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    // eslint-disable-next-line react/no-array-index-key
+                    key={i}
+                    className="w-64 h-40 rounded-2xl bg-gray-200 border border-gray-300 animate-pulse"
+                  />
+                ))}
+              </div>
+            )}
 
-          {!loading && !error && recommendedServices.length === 0 && (
-            <p className="text-xs opacity-70">
-              Once providers list services, recommendations will appear here.
-            </p>
-          )}
+            {!loading && !error && recommendedServices.length === 0 && (
+              <p className="text-xs opacity-70">
+                Once providers list services, recommendations will appear here.
+              </p>
+            )}
 
-          {!loading && !error && recommendedServices.length > 0 && (
-            <div className="flex gap-4 overflow-x-auto pb-2">
-              {recommendedServices.map((service) => (
-                <div key={service.id} className="min-w-[260px] max-w-xs">
-                  <ProviderCard service={service} variant="compact" />
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+            {!loading && !error && recommendedServices.length > 0 && (
+              <div className="flex gap-4 overflow-x-auto pb-2">
+                {recommendedServices.map((service) => (
+                  <div key={service.id} className="min-w-[260px] max-w-xs">
+                    <ProviderCard service={service} variant="compact" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Explore all services */}
-        <section className="space-y-3">
+        <section className="space-y-3 mt-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg md:text-xl font-bold">
-                Explore all companions
+                {isSearching ? "Search Results" : "Explore all companions"}
               </h2>
               <p className="text-xs opacity-70">
-                Use filters to find the right match for your vibe.
+                {isSearching ? `Found ${filteredServices.length} matching services.` : "Use filters to find the right match for your vibe."}
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs">
@@ -186,7 +249,7 @@ function ClientDashboard() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-black/40 border border-white/15 rounded-xl px-3 py-1.5 text-xs outline-none"
+                className="bg-white border border-gray-300 rounded-xl px-3 py-1.5 text-xs outline-none"
               >
                 <option value="relevance">Relevance</option>
                 <option value="priceLow">Price: Low to high</option>
@@ -207,7 +270,7 @@ function ClientDashboard() {
                 // eslint-disable-next-line react/no-array-index-key
                 <div
                   key={i}
-                  className="h-52 rounded-2xl bg-white/5 border border-white/10 animate-pulse"
+                  className="h-52 rounded-2xl bg-gray-200 border border-gray-300 animate-pulse"
                 />
               ))}
             </div>
