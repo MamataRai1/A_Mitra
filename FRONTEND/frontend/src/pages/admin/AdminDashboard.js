@@ -21,14 +21,14 @@ import AdminReportsSection from './AdminReportsSection';
 import AdminSettingsSection from './AdminSettingsSection';
 import AdminBookingsSection from './AdminBookingsSection';
 import AdminPaymentsSection from './AdminPaymentsSection';
-import AdminReviewsSection from './AdminReviewsSection';
 import AdminAnalyticsSection from './AdminAnalyticsSection';
+import AdminMapSection from './AdminMapSection'; // Map import
 import AdminUserProfileModal from './AdminUserProfileModal';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
     const [theme, setTheme] = useState('dark');
-    const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'kyc' | 'manage_users' | 'bookings' | 'payments' | 'reviews' | 'analytics' | 'reports' | 'settings'
+    const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'kyc' | 'manage_users' | 'bookings' | 'payments' | 'reviews' | 'analytics' | 'reports' | 'settings' | 'map'
     const [selectedIdImage, setSelectedIdImage] = useState(null);
     const [pendingUsers, setPendingUsers] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
@@ -120,6 +120,18 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleRefund = async (paymentId) => {
+        try {
+            const res = await API.patch(`/payments/${paymentId}/`, { status: 'refunded' });
+            setPayments(prev =>
+                prev.map(p => (p.id === paymentId ? { ...p, ...res.data } : p))
+            );
+        } catch (err) {
+            alert("Could not process refund.");
+            console.error(err);
+        }
+    };
+
     const totalUsers = allUsers.length;
     const totalProviders = allUsers.filter(u => u.role === 'provider').length;
     const totalClients = allUsers.filter(u => u.role === 'client').length;
@@ -181,12 +193,6 @@ const AdminDashboard = () => {
                         onClick={() => setActiveTab('payments')}
                     />
                     <SidebarItem
-                        icon={<FiStar />}
-                        label="Reviews"
-                        active={activeTab === 'reviews'}
-                        onClick={() => setActiveTab('reviews')}
-                    />
-                    <SidebarItem
                         icon={<FiBarChart2 />}
                         label="Analytics"
                         active={activeTab === 'analytics'}
@@ -197,6 +203,12 @@ const AdminDashboard = () => {
                         label="Reports"
                         active={activeTab === 'reports'}
                         onClick={() => setActiveTab('reports')}
+                    />
+                    <SidebarItem
+                        icon={<FiStar />} // Assuming FiStar for Map, or another appropriate icon
+                        label="Map"
+                        active={activeTab === 'map'}
+                        onClick={() => setActiveTab('map')}
                     />
                     <SidebarItem
                         icon={<FiSettings />}
@@ -279,14 +291,7 @@ const AdminDashboard = () => {
                     <AdminPaymentsSection
                         isDark={isDark}
                         payments={payments}
-                    />
-                )}
-
-                {activeTab === 'reviews' && (
-                    <AdminReviewsSection
-                        isDark={isDark}
-                        reviews={[]} // hook up when reviews API is integrated on admin side
-                        onDelete={() => { }}
+                        onRefund={handleRefund}
                     />
                 )}
 
@@ -298,6 +303,9 @@ const AdminDashboard = () => {
                         totalClients={totalClients}
                         totalBookings={totalBookings}
                         totalRevenue={totalRevenue}
+                        payments={payments}
+                        bookings={bookings}
+                        reports={reports}
                     />
                 )}
 
@@ -308,6 +316,10 @@ const AdminDashboard = () => {
                         pendingCount={pendingReports}
                         onChangeStatus={handleReportStatus}
                     />
+                )}
+
+                {activeTab === 'map' && (
+                    <AdminMapSection isDark={isDark} />
                 )}
 
                 {activeTab === 'settings' && (

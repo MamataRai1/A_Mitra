@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Profile, Service, Booking, Review, Report, Payment,
-    Availability, Favorite, Message, Verification, LocationLog
+    Availability, Favorite, Message, Verification, LocationLog, SystemSetting
 )
 from django.db.models import Avg
 
@@ -402,3 +402,10 @@ class LocationLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = LocationLog
         fields = ['id', 'profile', 'profile_id', 'latitude', 'longitude', 'logged_at']
+
+
+# -------------------- System Setting Serializer --------------------
+class SystemSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SystemSetting
+        fields = ['id', 'key', 'value', 'description', 'updated_at']

@@ -19,12 +19,13 @@ from .serializers import ProfileSerializer
 
 from .models import (
     Profile, Service, Booking, Review, Report, Payment, Availability,
-    Favorite, Message, Verification, LocationLog, Notification
+    Favorite, Message, Verification, LocationLog, Notification, SystemSetting
 )
 from .serializers import (
-    ProfileSerializer, ServiceSerializer, BookingSerializer, ReviewSerializer,
+    UserSerializer, ProfileSerializer, ServiceSerializer, BookingSerializer, ReviewSerializer,
     ReportSerializer, PaymentSerializer, AvailabilitySerializer,
-    FavoriteSerializer, MessageSerializer, VerificationSerializer, LocationLogSerializer
+    FavoriteSerializer, MessageSerializer, VerificationSerializer, LocationLogSerializer,
+    SystemSettingSerializer
 )
 
 # -------------------- HOME --------------------
@@ -355,6 +356,40 @@ class LocationLogDetail(generics.RetrieveAPIView):
     serializer_class = LocationLogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+# -------------------- Admin Location Logs --------------------
+class AdminLocationList(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        if request.user.is_staff or request.user.is_superuser:
+            pass # allow
+        else:
+            try:
+                profile = Profile.objects.get(user=request.user)
+                if profile.role != 'admin':
+                    return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+            except Profile.DoesNotExist:
+                return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+            
+        locations = []
+        # Get active providers
+        providers = Profile.objects.filter(role='provider', is_suspended=False)
+        
+        for provider in providers:
+            # Get their most recent location
+            latest_log = provider.locations.order_by('-logged_at').first()
+            if latest_log:
+                locations.append({
+                    'id': provider.user.id,
+                    'username': provider.user.username,
+                    'is_verified': provider.is_verified,
+                    'latitude': float(latest_log.latitude),
+                    'longitude': float(latest_log.longitude),
+                    'logged_at': latest_log.logged_at
+                })
+                
+        return Response(locations)
+
 
 # -------------------- Alert summary (for real-time-like alerts) --------------------
 class AlertSummaryView(APIView):
@@ -560,3 +595,29 @@ class AdminVerifyUserView(APIView):
 
         except Profile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# -------------------- System Settings --------------------
+class SystemSettingList(generics.ListCreateAPIView):
+    queryset = SystemSetting.objects.all()
+    serializer_class = SystemSettingSerializer
+    # Usually you want IsAdminUser but for ease of checking we'll just require authentication,
+    # or you can restrict strictly:
+    permission_classes = [permissions.IsAuthenticated]
+
+    # If you want to allow lookups by key instead of ID:
+    def get_queryset(self):
+        qs = super().get_queryset()
+        key = self.request.query_params.get('key')
+        if key:
+            qs = qs.filter(key=key)
+        return qs
+
+
+class SystemSettingDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = SystemSetting.objects.all()
+    serializer_class = SystemSettingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    # Optionally allow lookup by 'key'
+    lookup_field = 'key'

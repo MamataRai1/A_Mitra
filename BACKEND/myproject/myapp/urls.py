@@ -51,11 +51,16 @@ urlpatterns = [
     # -------------------- Location Tracking --------------------
     path('locations/', views.LocationLogList.as_view(), name='locationlog-list'),
     path('locations/<int:pk>/', views.LocationLogDetail.as_view(), name='locationlog-detail'),
+    path('admin/locations/', views.AdminLocationList.as_view(), name='admin-locations-list'),
 
     # -------------------- Alerts --------------------
     path('alerts/summary/', views.AlertSummaryView.as_view(), name='alert-summary'),
     path('alerts/panel/', views.AlertPanelView.as_view(), name='alert-panel'),
     path('alerts/report-targets/', views.ReportTargetsView.as_view(), name='alert-report-targets'),
+
+    # -------------------- Settings --------------------
+    path('settings/', views.SystemSettingList.as_view(), name='setting-list'),
+    path('settings/<str:key>/', views.SystemSettingDetail.as_view(), name='setting-detail'),
 
     # -------------------- API Home --------------------
     path('', views.home, name='api-home'),

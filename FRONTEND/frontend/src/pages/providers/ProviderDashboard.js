@@ -375,8 +375,8 @@ function ProviderDashboard() {
     }
     if (geoWatchIdRef.current != null) return;
 
-    // Throttle: send at most once every 20 seconds
-    const minMs = 20000;
+    // Throttle: send at most once every 5 seconds
+    const minMs = 5000;
 
     geoWatchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
@@ -399,8 +399,8 @@ function ProviderDashboard() {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 10000,
-        timeout: 15000,
+        maximumAge: 5000,
+        timeout: 10000,
       }
     );
 
