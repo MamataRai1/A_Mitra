@@ -69,6 +69,7 @@ class Booking(models.Model):
     service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='bookings')
 
     booking_date = models.DateTimeField()
+    end_time = models.DateTimeField(blank=True, null=True) # Added to compute booking duration and overlaps
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
     notes = models.TextField(blank=True, null=True)
@@ -186,7 +187,7 @@ class Payment(models.Model):
 class Availability(models.Model):
     provider = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='availability')
 
-    day = models.CharField(max_length=10)
+    date = models.DateField() # Changed from generic 'day'
 
     start_time = models.TimeField()
     end_time = models.TimeField()
@@ -194,7 +195,7 @@ class Availability(models.Model):
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.provider.user.username} available on {self.day}"
+        return f"{self.provider.user.username} available on {self.date}"
 
 
 # -------------------- Favorites --------------------

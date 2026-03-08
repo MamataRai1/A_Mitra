@@ -1,103 +1,174 @@
 import React, { useState } from "react";
-import API from "../../api";
 
-function ReviewModal({ bookingId, onClose, onSuccess }) {
+function ReviewModal({ open, onClose, onSubmit, targetLabel }) {
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
+
+    if (!open) return null;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setError("");
-
+        setSubmitting(true);
         try {
-            await API.post("/reviews/", {
-                booking_id: bookingId,
-                rating,
-                comment,
-            });
-
-            onSuccess();
-            onClose();
+            await onSubmit({ rating, comment });
+            setRating(5);
+            setComment("");
         } catch (err) {
-            console.error("Failed to submit review", err);
-            // Backend might block duplicates; let's show a user-friendly message
-            if (err.response && err.response.status === 400) {
-                setError("You may have already reviewed this booking or provided invalid data.");
+            if (err.response && err.response.data && Array.isArray(err.response.data)) {
+                setError(err.response.data[0]);
             } else {
-                setError("Could not submit the review. Please try again.");
+                setError(err.response?.data?.detail || "Could not submit review. Please try again.");
             }
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-6 relative">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900">Leave a Review</h2>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
+        <div
+            style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(15,23,42,0.75)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "16px",
+                zIndex: 1000,
+            }}
+        >
+            <div
+                style={{
+                    maxWidth: "480px",
+                    width: "100%",
+                    background: "white",
+                    borderRadius: "16px",
+                    padding: "20px 24px",
+                    boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
+                }}
+            >
+                <h2 style={{ marginBottom: "4px" }}>Leave a Review</h2>
+                <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "12px" }}>
+                    Share your experience to help others.
+                </p>
+                {targetLabel && (
+                    <p
+                        style={{
+                            fontSize: "13px",
+                            color: "#374151",
+                            marginBottom: "12px",
+                            fontWeight: 500,
+                        }}
                     >
-                        ✕
-                    </button>
-                </div>
-
-                {error && (
-                    <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-xl">
-                        {error}
-                    </div>
+                        Reviewing: <strong>{targetLabel}</strong>
+                    </p>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                    <p style={{ color: "red", fontSize: "13px", marginBottom: "8px" }}>
+                        {error}
+                    </p>
+                )}
+
+                <form onSubmit={handleSubmit} style={{ display: "grid", gap: 10 }}>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Rating</label>
-                        <div className="flex gap-2">
+                        <label
+                            style={{
+                                display: "block",
+                                marginBottom: "4px",
+                                fontSize: "13px",
+                                fontWeight: 500,
+                            }}
+                        >
+                            Rating
+                        </label>
+                        <div style={{ display: "flex", gap: "8px" }}>
                             {[1, 2, 3, 4, 5].map((star) => (
                                 <button
-                                    type="button"
                                     key={star}
+                                    type="button"
                                     onClick={() => setRating(star)}
-                                    className={`text-3xl transition-transform hover:scale-110 ${star <= rating ? "text-yellow-400" : "text-gray-300"
-                                        }`}
+                                    style={{
+                                        background: "none",
+                                        border: "none",
+                                        fontSize: "24px",
+                                        cursor: "pointer",
+                                        color: star <= rating ? "#fbbf24" : "#e5e7eb",
+                                        padding: 0,
+                                    }}
                                 >
                                     ★
                                 </button>
                             ))}
                         </div>
                     </div>
-
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Comment</label>
+                        <label
+                            style={{
+                                display: "block",
+                                marginBottom: "4px",
+                                fontSize: "13px",
+                                fontWeight: 500,
+                            }}
+                        >
+                            Comment (optional)
+                        </label>
                         <textarea
-                            className="w-full p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm resize-none bg-gray-50"
-                            placeholder="How was your experience?"
-                            rows={4}
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
-                            required
-                        ></textarea>
+                            rows={4}
+                            style={{
+                                width: "100%",
+                                padding: "8px 10px",
+                                borderRadius: "8px",
+                                border: "1px solid #d1d5db",
+                                resize: "vertical",
+                            }}
+                            placeholder="How was your experience?"
+                        />
                     </div>
 
-                    <div className="flex justify-end gap-3 mt-6">
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            gap: "8px",
+                            marginTop: "4px",
+                        }}
+                    >
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-5 py-2.5 rounded-xl font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                            style={{
+                                padding: "8px 14px",
+                                borderRadius: "999px",
+                                border: "1px solid #d1d5db",
+                                background: "white",
+                                fontSize: "13px",
+                                cursor: "pointer",
+                            }}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            disabled={loading}
-                            className={`px-5 py-2.5 rounded-xl font-bold text-white bg-indigo-600 shadow-lg shadow-indigo-600/30 transition-all ${loading ? "opacity-50" : "hover:bg-indigo-700 hover:-translate-y-0.5"
-                                }`}
+                            disabled={submitting}
+                            style={{
+                                padding: "8px 16px",
+                                borderRadius: "999px",
+                                border: "none",
+                                background: "#7c3aed",
+                                color: "white",
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                opacity: submitting ? 0.7 : 1,
+                            }}
                         >
-                            {loading ? "Submitting..." : "Submit Review"}
+                            {submitting ? "Submitting..." : "Submit Review"}
                         </button>
                     </div>
                 </form>

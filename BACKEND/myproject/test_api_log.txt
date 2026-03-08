@@ -1,0 +1,6 @@
+Total services returned: 1
+
+Service ID: 4 - dfgfhggjg
+Provider: provider12 | Status: offline
+Availability Slots: 1
+  Date: 2026-03-08 to 14:57:00 (Active: True)

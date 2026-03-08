@@ -139,6 +139,9 @@ function ProviderDashboard() {
 
     const fetchSummary = async () => {
       try {
+        const token = localStorage.getItem("access_token");
+        if (!token) return;
+
         const res = await API.get("/alerts/summary/");
         if (cancelled) return;
 
@@ -197,7 +200,7 @@ function ProviderDashboard() {
   );
   const completedBookings = bookings.filter((b) => b.status === "completed");
   const totalEarnings = payments
-    .filter((p) => p.status === "completed" || p.status === "pending")
+    .filter((p) => p.status === "completed")
     .reduce((sum, p) => sum + Number(p.amount || 0), 0)
     .toFixed(2);
 
@@ -272,28 +275,47 @@ function ProviderDashboard() {
       setEditServicePrice("");
     } catch (err) {
       console.error("Failed to update service price", err);
-      alert("Could not update price. Please try again.");
+      // alert("Could not update price. Please try again.");
+      setAlertToast("Could not update price. Please try again.");
     } finally {
       setSavingServiceEdit(false);
+    }
+  };
+
+  const updateBookingStatus = async (bookingId, newStatus) => {
+    try {
+      const res = await API.patch(`/bookings/${bookingId}/`, {
+        status: newStatus,
+      });
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, ...res.data } : b))
+      );
+      if (newStatus === "completed") {
+        const targetBooking = bookings.find((b) => b.id === bookingId);
+        if (targetBooking?.service?.price) {
+          const newPaymentLocal = {
+            id: Date.now(),
+            booking: { id: bookingId, service: targetBooking.service },
+            amount: targetBooking.service.price,
+            method: "cash",
+            status: "completed",
+          };
+          setPayments((prev) => [newPaymentLocal, ...prev]);
+        }
+      }
+
+      setAlertToast(`Booking ${newStatus} successfully.`);
+    } catch (err) {
+      console.error("Failed to update booking status", err);
+      const errorData = err.response?.data;
+      const errorMsg = errorData ? JSON.stringify(errorData) : "Could not update booking. Please try again.";
+      setAlertToast(`Error: ${errorMsg}`);
     }
   };
 
   const openReport = (booking) => {
     setReportTargetBooking(booking);
     setReportOpen(true);
-  };
-
-  const handleUpdateBookingStatus = async (id, newStatus) => {
-    try {
-      const res = await API.patch(`/bookings/${id}/`, { status: newStatus });
-      setBookings((prev) =>
-        prev.map((b) => (b.id === id ? { ...b, ...res.data } : b))
-      );
-      setAlertToast(`Booking marked as ${newStatus}`);
-    } catch (err) {
-      console.error("Failed to update booking status", err);
-      alert("Could not update booking. Please try again.");
-    }
   };
 
   const handleSubmitReport = async ({ reason, description }) => {
@@ -466,9 +488,17 @@ function ProviderDashboard() {
           }`}
       >
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-500 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/40">
-            P
-          </div>
+          {profile?.profile_pic ? (
+            <img
+              src={profile.profile_pic.startsWith("http") ? profile.profile_pic : `http://127.0.0.1:8000/media/${profile.profile_pic}`}
+              alt="Profile"
+              className="w-10 h-10 rounded-2xl object-cover shadow-lg shadow-indigo-500/40 border border-indigo-500/30"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/40">
+              {profile?.user?.username?.[0]?.toUpperCase() || "P"}
+            </div>
+          )}
           <div>
             <p className="text-[10px] tracking-[0.22em] font-black uppercase opacity-60">
               Provider
@@ -616,55 +646,71 @@ function ProviderDashboard() {
                         className={`flex items-center justify-between rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
                           }`}
                       >
-                        <div>
-                          <p className="font-semibold">
-                            {b.service?.name || "Service"}
-                          </p>
-                          <p className="text-[11px] opacity-70">
-                            with <span className="font-medium">{clientName}</span>
-                          </p>
-                          <p className="text-[11px] opacity-60">{date}</p>
+                        <div className="flex items-center gap-3">
+                          {b.client?.profile_pic ? (
+                            <img
+                              src={b.client.profile_pic.startsWith("http") ? b.client.profile_pic : `http://127.0.0.1:8000/media/${b.client.profile_pic}`}
+                              alt={clientName}
+                              className="w-10 h-10 rounded-full object-cover border border-white/10"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-sm font-bold text-indigo-400">
+                              {clientName[0]?.toUpperCase()}
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold">
+                              {b.service?.name || "Service"}
+                            </p>
+                            <p className="text-[11px] opacity-70">
+                              with <span className="font-medium">{clientName}</span>
+                            </p>
+                            <p className="text-[11px] opacity-60">{date}</p>
+                          </div>
                         </div>
                         <div className="text-right flex flex-col items-end gap-2">
                           <span className="text-[11px] px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 capitalize font-semibold">
                             {b.status}
                           </span>
-                          {b.status === "pending" && (
-                            <div className="flex gap-2 mt-1">
+
+                          <div className="flex gap-2 flex-wrap justify-end">
+                            {b.status === "pending" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => updateBookingStatus(b.id, "confirmed")}
+                                  className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => updateBookingStatus(b.id, "canceled")}
+                                  className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-gray-500/10 text-gray-400 hover:bg-gray-500 hover:text-white transition-all"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
+
+                            {b.status === "confirmed" && (
                               <button
                                 type="button"
-                                onClick={() => handleUpdateBookingStatus(b.id, "confirmed")}
-                                className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-emerald-500 text-white hover:bg-emerald-400 transition-all"
+                                onClick={() => updateBookingStatus(b.id, "completed")}
+                                className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all"
                               >
-                                Accept
+                                Mark Complete
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateBookingStatus(b.id, "canceled")}
-                                className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-white/10 text-gray-300 hover:bg-white/20 transition-all"
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          )}
-                          {b.status === "confirmed" && (
-                            <div className="flex gap-2 mt-1">
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateBookingStatus(b.id, "canceled")}
-                                className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-white/10 text-gray-300 hover:bg-white/20 transition-all"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => openReport(b)}
-                            className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white transition-all"
-                          >
-                            🚨 Report
-                          </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => openReport(b)}
+                              className="px-3 py-1 rounded-xl text-[11px] font-bold uppercase bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white transition-all"
+                            >
+                              🚨 Report
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -734,7 +780,7 @@ function ProviderDashboard() {
                 <div className="flex items-center gap-3">
                   {profile?.profile_pic ? (
                     <img
-                      src={profile.profile_pic.startsWith("http") ? profile.profile_pic : `http://127.0.0.1:8000${profile.profile_pic.startsWith('/media/') ? '' : '/media/'}${profile.profile_pic.replace(/^\/?media\//, '')}`}
+                      src={profile.profile_pic.startsWith("http") ? profile.profile_pic : `http://127.0.0.1:8000/media/${profile.profile_pic}`}
                       alt="Profile"
                       className="w-16 h-16 rounded-2xl object-cover border border-white/10"
                     />
@@ -829,10 +875,9 @@ function ProviderDashboard() {
                   <select
                     value={newServiceCategory}
                     onChange={(e) => setNewServiceCategory(e.target.value)}
-                    required
-                    className="px-3 py-2 rounded-xl bg-black/20 border border-white/10 outline-none flex-1"
+                    className="px-3 py-2 rounded-xl bg-black/20 border border-white/10 outline-none flex-1 text-white"
                   >
-                    <option value="">Select Category</option>
+                    <option value="" disabled>Select Category</option>
                     <option value="friend">Friend / Chat</option>
                     <option value="event">Event Partner</option>
                     <option value="travel">Travel Companion</option>
@@ -1009,6 +1054,7 @@ function ProviderDashboard() {
                   Total: <span className="text-sky-400">NPR {totalEarnings}</span>
                 </p>
                 {payments
+                  .filter((p) => p.status === "completed")
                   .slice(0, 10)
                   .map((p) => (
                     <div
@@ -1025,7 +1071,7 @@ function ProviderDashboard() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className={`font-bold ${p.status === "completed" ? "text-emerald-400" : "text-amber-400"}`}>
+                        <p className="font-bold text-emerald-400">
                           + NPR {p.amount}
                         </p>
                         <p className="text-[11px] opacity-60 capitalize">
@@ -1034,11 +1080,13 @@ function ProviderDashboard() {
                       </div>
                     </div>
                   ))}
-                {payments.length === 0 && (
-                  <p className="text-xs opacity-70">
-                    No payments yet. Once bookings are accepted, they’ll show here.
-                  </p>
-                )}
+                {payments.filter((p) => p.status === "completed").length ===
+                  0 && (
+                    <p className="text-xs opacity-70">
+                      No completed payments yet. Once bookings are finished and
+                      marked as paid, they’ll show here.
+                    </p>
+                  )}
               </div>
             </div>
           </section>
@@ -1096,7 +1144,7 @@ function ProviderDashboard() {
                   {reportTargets.length === 0 && (
                     <p className="text-[11px] opacity-70 mt-2">
                       No clients found yet. Once you receive bookings, clients
-                      will appear here for reporting.
+                      will appear here.
                     </p>
                   )}
                 </div>
@@ -1141,21 +1189,9 @@ function ProviderDashboard() {
                           {r.status}
                         </span>
                       </p>
-                      {r.action_taken && r.action_taken !== 'none' && (
-                        <p className={`text-[11px] font-bold mt-1 ${r.action_taken === 'fine' || r.action_taken === 'suspension' ? 'text-red-400' : 'text-orange-400'
-                          }`}>
-                          Action Taken: <span className="uppercase tracking-widest">{r.action_taken}</span>
-                          {r.action_taken === 'fine' ? ` (NPR ${r.fine_amount})` : ''}
-                        </p>
-                      )}
-                      <p className="text-[11px] opacity-60 line-clamp-2 mt-1">
+                      <p className="text-[11px] opacity-60 line-clamp-2">
                         {r.description || "No extra description."}
                       </p>
-                      {r.admin_note && (
-                        <p className="text-[11px] font-medium text-yellow-300/80 mt-1 italic">
-                          Admin note: "{r.admin_note}"
-                        </p>
-                      )}
                     </div>
                   ))}
                   {reports.length === 0 && (
@@ -1193,21 +1229,9 @@ function ProviderDashboard() {
                           {r.status}
                         </span>
                       </p>
-                      {r.action_taken && r.action_taken !== 'none' && (
-                        <p className={`text-[11px] font-bold mt-1 ${r.action_taken === 'fine' || r.action_taken === 'suspension' ? 'text-red-400' : 'text-orange-400'
-                          }`}>
-                          Action Taken: <span className="uppercase tracking-widest">{r.action_taken}</span>
-                          {r.action_taken === 'fine' ? ` (NPR ${r.fine_amount})` : ''}
-                        </p>
-                      )}
-                      <p className="text-[11px] opacity-60 line-clamp-2 mt-1">
+                      <p className="text-[11px] opacity-60 line-clamp-2">
                         {r.description || "No description was provided."}
                       </p>
-                      {r.admin_note && (
-                        <p className="text-[11px] font-medium text-yellow-300/80 mt-1 italic">
-                          Admin note: "{r.admin_note}"
-                        </p>
-                      )}
                     </div>
                   ))}
                   {reportsReceived.length === 0 && (

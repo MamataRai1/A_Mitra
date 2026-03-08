@@ -57,10 +57,6 @@ urlpatterns = [
     path('alerts/panel/', views.AlertPanelView.as_view(), name='alert-panel'),
     path('alerts/report-targets/', views.ReportTargetsView.as_view(), name='alert-report-targets'),
 
-    # -------------------- Notifications --------------------
-    path('notifications/', views.NotificationList.as_view(), name='notification-list'),
-    path('notifications/<int:pk>/', views.NotificationDetail.as_view(), name='notification-detail'),
-
     # -------------------- API Home --------------------
     path('', views.home, name='api-home'),
 

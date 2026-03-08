@@ -99,6 +99,7 @@ function ServiceDetail() {
     }
 
     const bookingDate = new Date(`${date}T${time}:00`);
+    const endDate = new Date(bookingDate.getTime() + (hours || 1) * 60 * 60 * 1000);
     const totalAmount =
       Number(service.price || 0) * Number(hours || 1 || 0);
 
@@ -106,11 +107,12 @@ function ServiceDetail() {
     setBookingMessage("");
 
     try {
-      // 1. Create booking
+      // 1. Create booking (Send exact datetime boundaries for conflict checking)
       const bookingRes = await API.post("/bookings/", {
         client_id: profileId,
         service_id: service.id,
         booking_date: bookingDate.toISOString(),
+        end_time: endDate.toISOString(),
       });
 
       // 2. Create payment linked to booking
@@ -130,7 +132,12 @@ function ServiceDetail() {
 
     } catch (err) {
       console.error("Booking or payment failed", err);
-      setBookingMessage("Could not complete booking. Please try again.");
+      // Display the provider conflict/overlap message from the API if present
+      if (err.response?.data?.error) {
+        setBookingMessage(err.response.data.error);
+      } else {
+        setBookingMessage("Could not complete booking. Please try again.");
+      }
     } finally {
       setBookingLoading(false);
     }
@@ -229,6 +236,17 @@ function ServiceDetail() {
               <p style={{ color: "#555", marginBottom: "20px" }}>
                 {service.description}
               </p>
+
+              <div style={{ marginBottom: "20px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "20px", color: "#fbbf24" }}>★</span>
+                <span style={{ fontWeight: 600, fontSize: "16px" }}>
+                  {service.average_rating ? service.average_rating : "New"}
+                </span>
+                <span style={{ color: "#6b7280", fontSize: "14px" }}>
+                  ({service.review_count || 0} reviews)
+                </span>
+              </div>
+
               <p style={{ fontWeight: "600", marginBottom: "8px" }}>
                 Hourly rate: NPR {service.price}
               </p>
@@ -347,6 +365,49 @@ function ServiceDetail() {
                   {reportMessage}
                 </p>
               )}
+            </div>
+          </div>
+        )}
+
+        {service && service.reviews && service.reviews.length > 0 && (
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              padding: "24px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+              marginTop: "30px",
+            }}
+          >
+            <h2 style={{ marginBottom: "20px" }}>What clients say</h2>
+            <div style={{ display: "grid", gap: "16px" }}>
+              {service.reviews.map((rev) => (
+                <div key={rev.id} style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                    <div style={{
+                      width: "32px", height: "32px", borderRadius: "50%",
+                      background: "#e2e8f0", display: "flex", alignItems: "center",
+                      justifyContent: "center", fontWeight: "bold", fontSize: "12px"
+                    }}>
+                      {rev.client_name?.[0]?.toUpperCase() || "C"}
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: "14px" }}>{rev.client_name}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <span style={{ color: "#fbbf24", fontSize: "12px" }}>★ {rev.rating}</span>
+                        <span style={{ color: "#94a3b8", fontSize: "11px" }}>
+                          • {new Date(rev.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {rev.comment && (
+                    <p style={{ margin: 0, fontSize: "14px", color: "#475569", lineHeight: 1.5 }}>
+                      "{rev.comment}"
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}

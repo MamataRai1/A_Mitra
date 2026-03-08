@@ -16,9 +16,11 @@ function ClientProfilePage() {
     const [profilePicPreview, setProfilePicPreview] = useState(null);
     const [avatarKey, setAvatarKey] = useState(0);
 
-    const [activeTab, setActiveTab] = useState("profile"); // profile | bookings | alerts
+    const [activeTab, setActiveTab] = useState("profile"); // profile | bookings | history | alerts
     const [bookings, setBookings] = useState([]);
     const [reportsReceived, setReportsReceived] = useState([]);
+    const [postedReviews, setPostedReviews] = useState([]);
+    const [sentReports, setSentReports] = useState([]);
 
     const [reviewBookingId, setReviewBookingId] = useState(null);
 
@@ -28,10 +30,11 @@ function ClientProfilePage() {
         const loadProfileData = async () => {
             if (!profileId) return;
             try {
-                const [profRes, bookRes, repRes] = await Promise.all([
+                const [profRes, bookRes, repRes, alertRes] = await Promise.all([
                     API.get(`/profiles/${profileId}/`),
                     API.get(`/bookings/`),
                     API.get(`/reports/`),
+                    API.get(`/alerts/panel/`)
                 ]);
 
                 setProfile(profRes.data);
@@ -45,6 +48,10 @@ function ClientProfilePage() {
                 // Reports where the client is the reported user
                 const allReports = repRes.data || [];
                 setReportsReceived(allReports.filter((r) => r.reported_user?.id === parseInt(profileId)));
+
+                // Populate history data
+                setPostedReviews(alertRes.data?.posted_reviews || []);
+                setSentReports(alertRes.data?.sent_reports || []);
 
             } catch (err) {
                 console.error("Failed to load client profile data", err);
@@ -134,7 +141,7 @@ function ClientProfilePage() {
 
                 {/* Tab Navigation */}
                 <div className="flex gap-2 p-1 bg-white border border-gray-200 rounded-2xl mb-6 shadow-sm overflow-x-auto">
-                    {["profile", "bookings", "alerts"].map((tab) => (
+                    {["profile", "bookings", "history", "alerts"].map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -405,6 +412,97 @@ function ClientProfilePage() {
                                     </Link>
                                 </div>
                             )}
+                        </div>
+                    </section>
+                )}
+
+                {/* HISTORY TAB */}
+                {activeTab === "history" && (
+                    <section className={cardClass}>
+                        <h2 className="text-xl font-bold mb-2">My History</h2>
+                        <p className="text-sm text-gray-500 mb-6">Review your past feedback and reports submitted.</p>
+
+                        <div className="space-y-6">
+                            {/* REVIEWS SECTION */}
+                            <div>
+                                <h3 className="text-lg font-semibold border-b border-gray-100 pb-2 mb-4">Reviews Given</h3>
+                                <div className="space-y-4">
+                                    {postedReviews.map((r) => {
+                                        const providerName = r.booking?.service?.provider?.user?.username || "Provider";
+                                        const serviceName = r.booking?.service?.name || "Service";
+                                        return (
+                                            <div key={`review-${r.id}`} className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <p className="font-bold text-gray-900">{serviceName}</p>
+                                                        <p className="text-xs text-gray-600">with <span className="font-semibold text-indigo-700">{providerName}</span></p>
+                                                    </div>
+                                                    <div className="flex gap-1">
+                                                        {[...Array(5)].map((_, i) => (
+                                                            <svg key={i} className={`w-4 h-4 ${i < r.rating ? "text-yellow-400" : "text-gray-300"}`} fill="currentColor" viewBox="0 0 20 20">
+                                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                                            </svg>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <p className="text-sm text-gray-700 italic border-l-2 border-indigo-300 pl-3 mt-3">"{r.comment}"</p>
+                                                <p className="text-xs text-gray-400 mt-3 text-right">
+                                                    {new Date(r.created_at).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {postedReviews.length === 0 && (
+                                        <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
+                                            <p className="text-gray-500 text-sm">You haven't left any reviews yet.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* REPORTS SECTION */}
+                            <div className="pt-6">
+                                <h3 className="text-lg font-semibold border-b border-gray-100 pb-2 mb-4">Reports Submitted</h3>
+                                <div className="space-y-4">
+                                    {sentReports.map((r) => {
+                                        const reportedName = r.reported_user?.user?.username || "Unknown User";
+                                        return (
+                                            <div key={`report-${r.id}`} className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <p className="text-xs uppercase tracking-widest font-black text-orange-600">
+                                                            {r.reason.replace("_", " ")}
+                                                        </p>
+                                                        <p className="text-xs text-gray-600 mt-1">Reported: <span className="font-semibold">{reportedName}</span></p>
+                                                    </div>
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded-md border capitalize ${r.status === 'resolved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                        r.status === 'rejected' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                                                            'bg-white text-orange-700 border-orange-200'
+                                                        }`}>
+                                                        Status: {r.status}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-700 mt-2">{r.description}</p>
+                                                {r.admin_note && (
+                                                    <p className="text-sm text-gray-600 mt-3 font-medium italic border-l-2 border-yellow-400 pl-3 bg-white p-2 rounded">
+                                                        Admin message: "{r.admin_note}"
+                                                    </p>
+                                                )}
+                                                <p className="text-xs text-gray-400 mt-3 text-right">
+                                                    {new Date(r.created_at).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {sentReports.length === 0 && (
+                                        <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100">
+                                            <p className="text-gray-500 text-sm">You haven't submitted any reports.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </section>
                 )}

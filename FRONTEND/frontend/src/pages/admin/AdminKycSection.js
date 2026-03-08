@@ -105,9 +105,8 @@ const AdminKycSection = ({ isDark, pendingUsers, onViewId, onAction }) => (
           isDark ? 'text-gray-400' : 'text-gray-600'
         }`}
       >
-        Every renter and companion must upload a valid citizenship ID and pass
-        face verification. Service providers are also tracked via GPS during
-        active bookings and can trigger emergency alerts; renters can file
+        Every renter and companion must upload a valid citizenship ID and 
+        can trigger emergency alerts; renters can file
         safety reports if they see misleading identity (different person shows
         up) or unsafe behaviour.
       </p>

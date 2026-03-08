@@ -144,7 +144,7 @@ const AdminDashboard = () => {
             {/* --- SIDEBAR --- */}
             <aside className={`w-64 border-r ${isDark ? 'bg-[#1a1625]/80 border-white/10' : 'bg-white border-gray-200'} backdrop-blur-xl p-6 flex flex-col fixed h-full`}>
                 <div className="flex items-center gap-3 mb-10 px-2">
-                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-indigo-600/40">C</div>
+                    {/* <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-indigo-600/40">C</div> */}
                     <span className="text-xl font-bold tracking-tight text-indigo-500">AdminPanel</span>
                 </div>
 

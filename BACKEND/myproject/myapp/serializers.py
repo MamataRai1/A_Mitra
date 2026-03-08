@@ -2,8 +2,9 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
     Profile, Service, Booking, Review, Report, Payment,
-    Availability, Favorite, Notification, Message, Verification, LocationLog
+    Availability, Favorite, Message, Verification, LocationLog
 )
+from django.db.models import Avg
 
 # -------------------- User Serializer --------------------
 class UserSerializer(serializers.ModelSerializer):
@@ -15,7 +16,8 @@ class UserSerializer(serializers.ModelSerializer):
 # -------------------- Profile Serializer --------------------
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    available_days = serializers.SerializerMethodField()
+    availability = serializers.SerializerMethodField()
+    booking_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
@@ -23,11 +25,82 @@ class ProfileSerializer(serializers.ModelSerializer):
             'id', 'user', 'role', 'phone_number', 'address',
             'bio', 'skills',
             'profile_pic', 'kyc_id', 'is_verified',
-            'is_suspended', 'trust_score', 'created_at', 'available_days'
+            'is_suspended', 'trust_score', 'created_at', 'availability', 'booking_status'
         ]
 
-    def get_available_days(self, obj):
-        return [a.day.lower() for a in obj.availability.all()]
+    def get_booking_status(self, obj):
+        if obj.role != 'provider':
+            return "offline"
+
+        from django.utils import timezone
+        now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
+
+        # Check if currently booked
+        from .models import Booking
+        is_booked = Booking.objects.filter(
+            service__provider=obj,
+            status__in=['pending', 'confirmed'],
+            booking_date__lte=now,
+            end_time__gt=now
+        ).exists()
+
+        if is_booked:
+            return "booked"
+
+        # Check if currently available (on the clock)
+        current_date = now.date()
+        current_time = now.time()
+        
+        from .models import Availability
+        is_available = Availability.objects.filter(
+            provider=obj,
+            is_active=True,
+            date=current_date,
+            start_time__lte=current_time,
+            end_time__gte=current_time
+        ).exists()
+
+        if is_available:
+            return "available"
+
+        return "offline"
+
+    def get_availability(self, obj):
+        from django.utils import timezone
+        import datetime
+        
+        # Determine the current local time safely
+        now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
+
+        availabilities = Availability.objects.filter(provider=obj, is_active=True)
+        valid_availabilities = []
+
+        for a in availabilities:
+            if a.date and a.end_time:
+                # Combine date and end_time
+                try:
+                    dt = datetime.datetime.combine(a.date, a.end_time)
+                    end_datetime = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
+                    
+                    if end_datetime < now:
+                        # Time has passed, automatically mark inactive in database
+                        a.is_active = False
+                        a.save(update_fields=['is_active'])
+                        continue
+                except Exception as e:
+                    print(f"Error checking availability expiration: {e}")
+            
+            valid_availabilities.append(a)
+
+        return [
+            {
+                "id": a.id,
+                "date": a.date,
+                "start_time": a.start_time,
+                "end_time": a.end_time,
+                "is_active": a.is_active
+            } for a in valid_availabilities
+        ]
 
 
 # -------------------- Register Serializer (Updated for KYC) --------------------
@@ -75,16 +148,48 @@ class ServiceSerializer(serializers.ModelSerializer):
         source="provider",
         write_only=True
     )
+    
+    average_rating = serializers.SerializerMethodField()
+    review_count = serializers.SerializerMethodField()
+    reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Service
-        fields = ['id', 'provider', 'provider_id', 'name', 'description', 'price', 'category', 'created_at', 'updated_at', 'is_active']
+        fields = [
+            'id', 'provider', 'provider_id', 'name', 'description', 
+            'price', 'category', 'average_rating', 'review_count', 'reviews',
+            'created_at', 'updated_at', 'is_active'
+        ]
+
+    def get_average_rating(self, obj):
+        # Calculate the average from bookings that have a review
+        val = obj.bookings.filter(review__isnull=False).aggregate(avg=Avg('review__rating'))['avg']
+        return round(val, 1) if val else 0.0
+
+    def get_review_count(self, obj):
+        return obj.bookings.filter(review__isnull=False).count()
+
+    def get_reviews(self, obj):
+        # Include a snippet of recent reviews for the detail page
+        recent_reviews = Review.objects.filter(booking__service=obj).order_by('-created_at')[:10]
+        # Just return simple dicts instead of using circular serializers
+        return [
+            {
+                "id": r.id,
+                "rating": r.rating,
+                "comment": r.comment,
+                "client_name": r.booking.client.user.username or r.booking.client.user.first_name,
+                "created_at": r.created_at
+            }
+            for r in recent_reviews
+        ]
 
 
 # -------------------- Booking Serializer --------------------
 class BookingSerializer(serializers.ModelSerializer):
     client = ProfileSerializer(read_only=True)
     service = ServiceSerializer(read_only=True)
+    has_review = serializers.SerializerMethodField()
 
     client_id = serializers.PrimaryKeyRelatedField(
         queryset=Profile.objects.all(),
@@ -102,8 +207,20 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = [
             'id', 'client', 'client_id', 'service', 'service_id',
-            'booking_date', 'status', 'created_at'
+            'booking_date', 'end_time', 'status', 'created_at', 'has_review'
         ]
+        read_only_fields = ['id', 'created_at']
+
+    def get_has_review(self, obj):
+        return hasattr(obj, 'review')
+
+    def validate_status(self, value):
+        allowed_statuses = [choice[0] for choice in Booking.STATUS_CHOICES]
+        if value not in allowed_statuses:
+            raise serializers.ValidationError(
+                f"Invalid status '{value}'. Allowed statuses are: {', '.join(allowed_statuses)}."
+            )
+        return value
 
 
 # -------------------- Review Serializer --------------------
@@ -118,13 +235,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['id', 'booking', 'booking_id', 'rating', 'comment', 'provider_response', 'created_at']
-
-# -------------------- Notification Serializer --------------------
-class NotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Notification
-        fields = ['id', 'recipient', 'title', 'message', 'is_read', 'created_at']
+        fields = ['id', 'booking', 'booking_id', 'rating', 'comment', 'created_at']
 
 
 # -------------------- Report Serializer (Red Flag Safety) --------------------
@@ -166,8 +277,6 @@ class ReportSerializer(serializers.ModelSerializer):
             'reason',
             'description',
             'status',
-            'action_taken',
-            'fine_amount',
             'admin_note',
             'created_at',
         ]
@@ -200,7 +309,7 @@ class AvailabilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Availability
-        fields = ['id', 'provider', 'provider_id', 'day', 'start_time', 'end_time', 'is_active']
+        fields = ['id', 'provider', 'provider_id', 'date', 'start_time', 'end_time', 'is_active']
 
 
 # -------------------- Favorite Serializer --------------------

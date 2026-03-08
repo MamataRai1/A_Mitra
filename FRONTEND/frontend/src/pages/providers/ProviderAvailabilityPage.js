@@ -6,7 +6,8 @@ import API from "../../api";
 
 function ProviderAvailabilityPage() {
   const [slots, setSlots] = useState([]);
-  const [day, setDay] = useState("Monday");
+  // Change from generic "Day" to specific "Date"
+  const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [saving, setSaving] = useState(false);
@@ -38,7 +39,7 @@ function ProviderAvailabilityPage() {
     try {
       await API.post("/availability/", {
         provider_id: profileId,
-        day,
+        date, // Send exact date to API
         start_time: startTime,
         end_time: endTime,
       });
@@ -49,7 +50,7 @@ function ProviderAvailabilityPage() {
       navigate("/dashboard?tab=availability");
     } catch (err) {
       console.error("Failed to add availability", err);
-      setError("Could not add slot. Use HH:MM time like 09:00.");
+      setError("Could not add slot. Please ensure valid time ranges.");
     } finally {
       setSaving(false);
     }
@@ -94,7 +95,7 @@ function ProviderAvailabilityPage() {
           📅 Availability Control
         </h1>
         <p style={{ fontSize: "13px", opacity: 0.75, marginBottom: "4px" }}>
-          Set available days &amp; hours for bookings.
+          Set available dates &amp; exact hours for your bookings.
         </p>
         <p style={{ fontSize: "13px", opacity: 0.75, marginBottom: "24px" }}>
           Mark busy / unavailable times without deleting your schedule.
@@ -112,11 +113,14 @@ function ProviderAvailabilityPage() {
         >
           <div>
             <label style={{ fontSize: "12px", display: "block", marginBottom: 4 }}>
-              Day
+              Date
             </label>
-            <select
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              min={new Date().toISOString().split("T")[0]}
               style={{
                 padding: "9px 12px",
                 borderRadius: 10,
@@ -125,21 +129,7 @@ function ProviderAvailabilityPage() {
                 color: "white",
                 fontSize: "14px",
               }}
-            >
-              {[
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-                "Saturday",
-                "Sunday",
-              ].map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -226,79 +216,84 @@ function ProviderAvailabilityPage() {
             </p>
           )}
           <div style={{ display: "grid", gap: "8px", marginTop: 8 }}>
-            {slots.map((slot) => (
-              <div
-                key={slot.id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "8px 10px",
-                  borderRadius: 12,
-                  background: "rgba(15,23,42,1)",
-                  border: "1px solid rgba(148,163,184,0.4)",
-                  fontSize: "13px",
-                }}
-              >
-                <span>
-                  <strong>{slot.day}</strong> • {slot.start_time} –{" "}
-                  {slot.end_time}{" "}
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      fontSize: "11px",
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      backgroundColor: slot.is_active
-                        ? "rgba(16,185,129,0.15)"
-                        : "rgba(248,113,113,0.14)",
-                      color: slot.is_active ? "#6ee7b7" : "#fecaca",
-                      border: slot.is_active
-                        ? "1px solid rgba(16,185,129,0.5)"
-                        : "1px solid rgba(248,113,113,0.6)",
-                    }}
-                  >
-                    {slot.is_active ? "Available" : "Busy / unavailable"}
+            {slots.map((slot) => {
+              const dateObj = slot.date ? new Date(slot.date) : null;
+              const dateDisplay = dateObj ? dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : "No Date";
+
+              return (
+                <div
+                  key={slot.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "8px 10px",
+                    borderRadius: 12,
+                    background: "rgba(15,23,42,1)",
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    fontSize: "13px",
+                  }}
+                >
+                  <span>
+                    <strong>{dateDisplay}</strong> • {slot.start_time} –{" "}
+                    {slot.end_time}{" "}
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: "11px",
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        backgroundColor: slot.is_active
+                          ? "rgba(16,185,129,0.15)"
+                          : "rgba(248,113,113,0.14)",
+                        color: slot.is_active ? "#6ee7b7" : "#fecaca",
+                        border: slot.is_active
+                          ? "1px solid rgba(16,185,129,0.5)"
+                          : "1px solid rgba(248,113,113,0.6)",
+                      }}
+                    >
+                      {slot.is_active ? "Available" : "Busy / unavailable"}
+                    </span>
                   </span>
-                </span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={() => handleToggleActive(slot)}
-                    style={{
-                      padding: "4px 10px",
-                      borderRadius: 999,
-                      border: slot.is_active
-                        ? "1px solid rgba(248,113,113,0.6)"
-                        : "1px solid rgba(16,185,129,0.6)",
-                      background: slot.is_active
-                        ? "rgba(248,113,113,0.14)"
-                        : "rgba(16,185,129,0.14)",
-                      color: slot.is_active ? "#fecaca" : "#6ee7b7",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {slot.is_active ? "Mark busy" : "Mark available"}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(slot.id)}
-                    style={{
-                      padding: "4px 10px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(148,163,184,0.5)",
-                      background: "transparent",
-                      color: "#cbd5f5",
-                      fontSize: "11px",
-                      fontWeight: 500,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Remove
-                  </button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => handleToggleActive(slot)}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        border: slot.is_active
+                          ? "1px solid rgba(248,113,113,0.6)"
+                          : "1px solid rgba(16,185,129,0.6)",
+                        background: slot.is_active
+                          ? "rgba(248,113,113,0.14)"
+                          : "rgba(16,185,129,0.14)",
+                        color: slot.is_active ? "#fecaca" : "#6ee7b7",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {slot.is_active ? "Mark busy" : "Mark available"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(slot.id)}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.5)",
+                        background: "transparent",
+                        color: "#cbd5f5",
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </main>

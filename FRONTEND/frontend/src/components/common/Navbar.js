@@ -24,7 +24,12 @@ function ClientNavbar() {
   }, []);
 
   const goTo = (path) => {
-    navigate(path);
+    if (window.location.pathname === path && path === "/dashboard") {
+      // Reload to clear out any local search states on the dashboard
+      window.location.reload();
+    } else {
+      navigate(path);
+    }
   };
 
   const handleLogout = () => {

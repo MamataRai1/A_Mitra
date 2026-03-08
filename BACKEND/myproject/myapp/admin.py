@@ -69,7 +69,7 @@ class PaymentAdmin(admin.ModelAdmin):
 # -------------------- Availability Admin --------------------
 @admin.register(Availability)
 class AvailabilityAdmin(admin.ModelAdmin):
-    list_display = ("provider", "day", "start_time", "end_time")
+    list_display = ("provider", "date", "start_time", "end_time")
 
 
 # -------------------- Favorites Admin --------------------

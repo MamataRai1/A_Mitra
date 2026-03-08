@@ -24,7 +24,7 @@ from .models import (
 from .serializers import (
     ProfileSerializer, ServiceSerializer, BookingSerializer, ReviewSerializer,
     ReportSerializer, PaymentSerializer, AvailabilitySerializer,
-    FavoriteSerializer, MessageSerializer, VerificationSerializer, LocationLogSerializer, NotificationSerializer
+    FavoriteSerializer, MessageSerializer, VerificationSerializer, LocationLogSerializer
 )
 
 # -------------------- HOME --------------------
@@ -33,15 +33,45 @@ def home(request):
 
 # -------------------- Profiles --------------------
 class ProfileList(generics.ListAPIView):
-    queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        from django.utils import timezone
+        from django.db.models import Q
+        
+        # Get exact atomic time
+        now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
+        current_date = now.date()
+        current_time = now.time()
+
+        # Automatic Expiry of Availability (Strong Database Backend Logic)
+        Availability.objects.filter(
+            is_active=True
+        ).filter(
+            Q(date__lt=current_date) | 
+            Q(date=current_date, end_time__lt=current_time)
+        ).update(is_active=False)
+
+        return Profile.objects.all()
+
 class ProfileDetail(generics.RetrieveUpdateAPIView):
-    queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        from django.utils import timezone
+        from django.db.models import Q
+        now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
+        Availability.objects.filter(
+            is_active=True
+        ).filter(
+            Q(date__lt=now.date()) | 
+            Q(date=now.date(), end_time__lt=now.time())
+        ).update(is_active=False)
+
+        return Profile.objects.all()
 
     def perform_update(self, serializer):
         # Only allow users to update their own profile (or admin)
@@ -58,14 +88,40 @@ class ProfileDetail(generics.RetrieveUpdateAPIView):
 
 # -------------------- Services --------------------
 class ServiceList(generics.ListCreateAPIView):
-    queryset = Service.objects.filter(is_active=True)
     serializer_class = ServiceSerializer
     permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        from django.utils import timezone
+        from django.db.models import Q
+        
+        # Get exact atomic time
+        now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
+        current_date = now.date()
+        current_time = now.time()
+
+        # 1. Automatic Expiry of Availability (Strong Database Backend Logic)
+        Availability.objects.filter(
+            is_active=True
+        ).filter(
+            Q(date__lt=current_date) | 
+            Q(date=current_date, end_time__lt=current_time)
+        ).update(is_active=False)
+
+        return Service.objects.filter(is_active=True).distinct()
 
 class ServiceDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+from django.db.models import Q
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
+
+# ... existing imports ...
 
 # -------------------- Bookings --------------------
 class BookingList(generics.ListCreateAPIView):
@@ -84,13 +140,38 @@ class BookingList(generics.ListCreateAPIView):
         return Booking.objects.all()
 
     def perform_create(self, serializer):
-        booking = serializer.save()
-        # Notify Provider about new booking
-        Notification.objects.create(
-            recipient=booking.service.provider,
-            title="New Booking Request",
-            message=f"{booking.client.user.username} has requested a booking for {booking.service.name}."
+        profile = Profile.objects.get(user=self.request.user)
+        # Ensure client is attached automatically if not provided or override it
+        service = serializer.validated_data.get('service')
+        start_time = serializer.validated_data.get('booking_date')
+        end_time = serializer.validated_data.get('end_time')
+
+        if not start_time or not end_time:
+            raise ValidationError({"error": "Both booking_date and end_time are required."})
+
+        if end_time <= start_time:
+            raise ValidationError({"error": "end_time must be after booking_date."})
+
+        # Check for overlapping bookings for this provider
+        # Overlap condition:
+        # (New Start < Existing End) AND (New End > Existing Start)
+        overlapping_bookings = Booking.objects.filter(
+            service__provider=service.provider,
+            status__in=['pending', 'confirmed']
+        ).filter(
+            booking_date__lt=end_time,
+            end_time__gt=start_time
         )
+
+        if overlapping_bookings.exists():
+            # Format time for the error message
+            start_str = start_time.strftime("%I:%M %p")
+            end_str = end_time.strftime("%I:%M %p")
+            raise ValidationError(
+                {"error": f"This provider is already booked from {start_str} to {end_str}. Please choose another time or book for a later date."}
+            )
+
+        serializer.save(client=profile)
 
 class BookingDetail(generics.RetrieveUpdateAPIView):
     queryset = Booking.objects.all()
@@ -98,27 +179,45 @@ class BookingDetail(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_update(self, serializer):
-        booking_instance = self.get_object()
-        old_status = booking_instance.status
-        booking = serializer.save()
+        # Store original status before saving
+        original_booking = self.get_object()
+        original_status = original_booking.status
         
+        # Save the updated booking
+        updated_booking = serializer.save()
+        new_status = updated_booking.status
+
         # If status changed, notify the client
-        if old_status != booking.status:
-            Notification.objects.create(
-                recipient=booking.client,
-                title="Booking Status Updated",
-                message=f"Your booking for {booking.service.name} is now {booking.status}."
-            )
-            
-            # Auto-generate a Payment pending when a booking is accepted/confirmed
-            if booking.status == 'confirmed':
-                from .models import Payment
-                Payment.objects.get_or_create(
-                    booking=booking,
+        if original_status != new_status:
+            service_name = updated_booking.service.name
+            provider_name = updated_booking.service.provider.user.username
+
+            if new_status == 'canceled':
+                Notification.objects.create(
+                    recipient=updated_booking.client,
+                    title="Booking Canceled",
+                    message=f"Your booking for '{service_name}' with {provider_name} has been canceled."
+                )
+            elif new_status == 'confirmed':
+                Notification.objects.create(
+                    recipient=updated_booking.client,
+                    title="Booking Confirmed",
+                    message=f"Your booking for '{service_name}' with {provider_name} is confirmed!"
+                )
+            elif new_status == 'completed':
+                Notification.objects.create(
+                    recipient=updated_booking.client,
+                    title="Service Completed",
+                    message=f"Your session for '{service_name}' is complete. Please leave a review!"
+                )
+                from django.utils import timezone
+                Payment.objects.update_or_create(
+                    booking=updated_booking,
                     defaults={
-                        'amount': booking.service.price,
+                        'amount': updated_booking.service.price,
                         'method': 'cash',
-                        'status': 'pending'
+                        'status': 'completed',
+                        'paid_at': timezone.now()
                     }
                 )
 
@@ -128,43 +227,31 @@ class ReviewList(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class ReviewDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Review.objects.all()
-    serializer_class = ReviewSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_update(self, serializer):
-        review = self.get_object()
+    def perform_create(self, serializer):
         profile = Profile.objects.get(user=self.request.user)
-        if review.booking.service.provider.id != profile.id and profile.role != 'admin':
+        booking = serializer.validated_data.get('booking')
+        
+        # Only the client who booked can leave a review
+        if booking.client != profile:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only the provider of this service can respond to this review.")
+            raise PermissionDenied("You can only review your own bookings.")
+        
+        # The booking must be completed
+        if booking.status != 'completed':
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("You can only review completed bookings.")
+            
+        # Check if review already exists
+        if hasattr(booking, 'review'):
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("A review already exists for this booking.")
+
         serializer.save()
 
-    def perform_destroy(self, instance):
-        profile = Profile.objects.get(user=self.request.user)
-        if profile.role != 'admin':
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only admins can delete reviews.")
-        instance.delete()
-
-# -------------------- Notifications --------------------
-class NotificationList(generics.ListCreateAPIView):
-    serializer_class = NotificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        profile = Profile.objects.get(user=self.request.user)
-        return Notification.objects.filter(recipient=profile).order_by('-created_at')
-
-class NotificationDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Notification.objects.all()
-    serializer_class = NotificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        profile = Profile.objects.get(user=self.request.user)
-        return Notification.objects.filter(recipient=profile)
+class ReviewDetail(generics.RetrieveDestroyAPIView):
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [permissions.IsAdminUser]
 
 # -------------------- Reports (Safety Alerts) --------------------
 class ReportList(generics.ListCreateAPIView):
@@ -181,53 +268,19 @@ class ReportList(generics.ListCreateAPIView):
 class ReportDetail(generics.RetrieveUpdateAPIView):
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
-    # Only admins should change report status / notes / actions
+    # Only admins should change report status / notes
     permission_classes = [permissions.IsAdminUser]
-
-    def perform_update(self, serializer):
-        report = serializer.save()
-        
-        # Look at the new action_taken to apply side-effects
-        if report.action_taken == 'suspension':
-            reported_prof = report.reported_user
-            reported_prof.is_suspended = True
-            reported_prof.save()
-        elif report.action_taken == 'warning' or report.action_taken == 'fine':
-            # Automatically un-suspend if admin chose to downgrade the punishment
-            reported_prof = report.reported_user
-            if reported_prof.is_suspended:
-                reported_prof.is_suspended = False
-                reported_prof.save()
 
 # -------------------- Payments --------------------
 class PaymentList(generics.ListCreateAPIView):
+    queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        profile = Profile.objects.get(user=self.request.user)
-        if profile.role == 'admin' or self.request.user.is_staff:
-            return Payment.objects.all().order_by('-id')
-        if profile.role == 'provider':
-            return Payment.objects.filter(booking__service__provider=profile).order_by('-id')
-        return Payment.objects.filter(booking__client=profile).order_by('-id')
 
 class PaymentDetail(generics.RetrieveUpdateAPIView):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def perform_update(self, serializer):
-        payment_instance = self.get_object()
-        old_status = payment_instance.status
-        payment = serializer.save()
-
-        if old_status != 'completed' and payment.status == 'completed':
-            Notification.objects.create(
-                recipient=payment.booking.service.provider,
-                title="Payment Received",
-                message=f"Payment of NPR {payment.amount} for {payment.booking.service.name} has been completed."
-            )
 
 # -------------------- Availability --------------------
 class AvailabilityList(generics.ListCreateAPIView):
@@ -362,11 +415,17 @@ class AlertPanelView(APIView):
             booking__service__provider=profile
         ).order_by("-created_at")
 
+        # Reviews posted BY this user
+        posted_reviews = Review.objects.filter(
+            booking__client=profile
+        ).order_by("-created_at")
+
         return Response(
             {
                 "sent_reports": ReportSerializer(sent_reports, many=True).data,
                 "received_reports": ReportSerializer(received_reports, many=True).data,
                 "reviews": ReviewSerializer(reviews, many=True).data,
+                "posted_reviews": ReviewSerializer(posted_reviews, many=True).data,
             }
         )
 
@@ -381,8 +440,6 @@ class ReportTargetsView(APIView):
 
     def get(self, request):
         profile = Profile.objects.get(user=request.user)
-        if profile.role != "provider":
-            return Response({"detail": "Only providers can access this."}, status=403)
 
         qs = (
             Booking.objects.filter(service__provider=profile)

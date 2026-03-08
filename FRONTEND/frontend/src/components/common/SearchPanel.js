@@ -2,13 +2,11 @@ import React, { useState } from "react";
 
 function SearchPanel({ filters, onChange, onSubmit }) {
   const [localSearch, setLocalSearch] = useState(filters?.search || "");
-  const [localDate, setLocalDate] = useState(filters?.date || "");
   const [localType, setLocalType] = useState(filters?.serviceType || "");
 
   const handleSearchClick = () => {
     onChange({
       search: localSearch,
-      date: localDate,
       serviceType: localType,
     });
     if (onSubmit) onSubmit();
@@ -30,12 +28,6 @@ function SearchPanel({ filters, onChange, onSubmit }) {
           placeholder="Location (e.g. Kathmandu)"
           value={localSearch}
           onChange={e => setLocalSearch(e.target.value)}
-          style={input}
-        />
-        <input
-          type="date"
-          value={localDate}
-          onChange={e => setLocalDate(e.target.value)}
           style={input}
         />
         <select

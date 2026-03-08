@@ -11,7 +11,7 @@ API.interceptors.request.use((config) => {
     }
     const accessToken = localStorage.getItem('access_token');
     if (accessToken) {
-        config.headers.set('Authorization', `Bearer ${accessToken}`);
+        config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
 });
@@ -44,7 +44,7 @@ API.interceptors.response.use(
                     failedQueue.push({ resolve, reject });
                 })
                     .then((token) => {
-                        originalRequest.headers.set('Authorization', `Bearer ${token}`);
+                        originalRequest.headers.Authorization = `Bearer ${token}`;
                         return API(originalRequest);
                     })
                     .catch((err) => Promise.reject(err));
@@ -57,7 +57,7 @@ API.interceptors.response.use(
                 .then((res) => {
                     const newAccess = res.data.access;
                     localStorage.setItem('access_token', newAccess);
-                    originalRequest.headers.set('Authorization', `Bearer ${newAccess}`);
+                    originalRequest.headers.Authorization = `Bearer ${newAccess}`;
                     processQueue(null, newAccess);
                     return API(originalRequest);
                 })

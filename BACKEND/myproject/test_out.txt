@@ -1,0 +1,15 @@
+Current Time: 2026-03-08 10:22:48.749033+00:00
+Found 3 providers
+Provider sa12 has 0 availabilities
+Provider provider12 has 1 availabilities
+  - Date: 2026-03-08, Start: 14:08:00, End: 14:57:00, Active: True
+Provider provider1 has 1 availabilities
+  - Date: 2026-03-08, Start: 15:07:00, End: 03:07:00, Active: False
+Total services: 7
+  - Service: JHVHJ, Provider: admin, Active: True
+  - Service: dfgfhggjg, Provider: provider12, Active: True
+  - Service: frfhgf, Provider: provider1, Active: True
+  - Service: hiuiouio, Provider: provider1, Active: True
+  - Service: hhjhjk, Provider: provider1, Active: True
+  - Service: vgyhj, Provider: provider1, Active: True
+  - Service: ut878u8, Provider: provider1, Active: True
