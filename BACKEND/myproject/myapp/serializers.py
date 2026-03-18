@@ -66,32 +66,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         return "offline"
 
     def get_availability(self, obj):
-        from django.utils import timezone
-        import datetime
-        
-        # Determine the current local time safely
-        now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
-
         availabilities = Availability.objects.filter(provider=obj, is_active=True)
-        valid_availabilities = []
-
-        for a in availabilities:
-            if a.date and a.end_time:
-                # Combine date and end_time
-                try:
-                    dt = datetime.datetime.combine(a.date, a.end_time)
-                    end_datetime = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
-                    
-                    if end_datetime < now:
-                        # Time has passed, automatically mark inactive in database
-                        a.is_active = False
-                        a.save(update_fields=['is_active'])
-                        continue
-                except Exception as e:
-                    print(f"Error checking availability expiration: {e}")
-            
-            valid_availabilities.append(a)
-
         return [
             {
                 "id": a.id,
@@ -99,7 +74,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                 "start_time": a.start_time,
                 "end_time": a.end_time,
                 "is_active": a.is_active
-            } for a in valid_availabilities
+            } for a in availabilities
         ]
 
 

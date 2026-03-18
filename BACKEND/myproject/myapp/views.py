@@ -25,6 +25,33 @@ from .serializers import (AvailabilitySerializer, BookingSerializer,
 def home(request):
     return HttpResponse("Welcome to the API Home!")
 
+def expire_old_availability():
+    from django.utils import timezone
+    from datetime import timedelta
+    from .models import Availability
+    now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
+    current_date = now.date()
+    current_time = now.time()
+    yesterday = current_date - timedelta(days=1)
+    
+    for slot in Availability.objects.filter(is_active=True):
+        if slot.date < yesterday:
+            slot.is_active = False
+            slot.save()
+        elif slot.date == yesterday:
+            if slot.start_time > slot.end_time: # overnight ending today
+                if slot.end_time < current_time:
+                    slot.is_active = False
+                    slot.save()
+            else: # already ended yesterday
+                slot.is_active = False
+                slot.save()
+        elif slot.date == current_date:
+            if slot.start_time <= slot.end_time: # not overnight
+                if slot.end_time < current_time:
+                    slot.is_active = False
+                    slot.save()
+
 # -------------------- Profiles --------------------
 class ProfileList(generics.ListAPIView):
     serializer_class = ProfileSerializer
@@ -40,12 +67,7 @@ class ProfileList(generics.ListAPIView):
         current_time = now.time()
 
         # Automatic Expiry of Availability (Strong Database Backend Logic)
-        Availability.objects.filter(
-            is_active=True
-        ).filter(
-            Q(date__lt=current_date) | 
-            Q(date=current_date, end_time__lt=current_time)
-        ).update(is_active=False)
+        expire_old_availability()
 
         return Profile.objects.all()
 
@@ -59,12 +81,7 @@ class ProfileDetail(generics.RetrieveUpdateAPIView):
         from django.utils import timezone
         from django.db.models import Q
         now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
-        Availability.objects.filter(
-            is_active=True
-        ).filter(
-            Q(date__lt=now.date()) | 
-            Q(date=now.date(), end_time__lt=now.time())
-        ).update(is_active=False)
+        expire_old_availability()
 
         return Profile.objects.all()
 
@@ -97,31 +114,10 @@ class ServiceList(generics.ListCreateAPIView):
         current_time = now.time()
 
         # 1. Automatic Expiry of Availability (Strong Database Backend Logic)
-        Availability.objects.filter(
-            is_active=True
-        ).filter(
-            Q(date__lt=current_date) | 
-            Q(date=current_date, end_time__lt=current_time)
-        ).update(is_active=False)
+        expire_old_availability()
 
-        # Base active services
-        queryset = Service.objects.filter(is_active=True)
-
-        if self.request.user.is_authenticated:
-            try:
-                profile = Profile.objects.get(user=self.request.user)
-                return queryset.filter(
-                    Q(provider=profile) | 
-                    Q(provider__availability__is_active=True, provider__availability__date__gte=current_date)
-                ).distinct()
-            except Profile.DoesNotExist:
-                pass
-
-        # Return services where the provider has at least one active availability slot natively
-        return queryset.filter(
-            provider__availability__is_active=True,
-            provider__availability__date__gte=current_date
-        ).distinct()
+        # Return all active services, but permanently hide Admin-created services
+        return Service.objects.filter(is_active=True).exclude(provider__role='admin')
 
 class ServiceDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
