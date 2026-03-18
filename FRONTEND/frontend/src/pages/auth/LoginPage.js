@@ -41,7 +41,11 @@ const LoginPage = () => {
         }
 
     } catch (error) {
-        setErrorMsg("Invalid credentials");
+        if (error.response && error.response.data && error.response.data.error) {
+            setErrorMsg(error.response.data.error);
+        } else {
+            setErrorMsg("Invalid credentials. Please verify your username and password.");
+        }
     } finally {
         setLoading(false);
     }

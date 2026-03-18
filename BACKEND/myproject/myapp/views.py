@@ -1,32 +1,25 @@
-from rest_framework import generics, permissions
-from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
+from django.http import HttpResponse
+from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from django.http import HttpResponse
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
-from .models import Profile
-from .serializers import ProfileSerializer
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import RegisterSerializer
-from rest_framework import status, permissions
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from .models import Profile
-from .serializers import ProfileSerializer
 
-from .models import (
-    Profile, Service, Booking, Review, Report, Payment, Availability,
-    Favorite, Message, Verification, LocationLog, Notification, SystemSetting
-)
-from .serializers import (
-    UserSerializer, ProfileSerializer, ServiceSerializer, BookingSerializer, ReviewSerializer,
-    ReportSerializer, PaymentSerializer, AvailabilitySerializer,
-    FavoriteSerializer, MessageSerializer, VerificationSerializer, LocationLogSerializer,
-    SystemSettingSerializer
-)
+from .models import (Availability, Booking, Favorite, LocationLog, Message,
+                     Notification, Payment, Profile, Report, Review, Service,
+                     SystemSetting, Verification)
+from .serializers import (AvailabilitySerializer, BookingSerializer,
+                          FavoriteSerializer, LocationLogSerializer,
+                          MessageSerializer, PaymentSerializer,
+                          ProfileSerializer, RegisterSerializer,
+                          ReportSerializer, ReviewSerializer,
+                          ServiceSerializer, SystemSettingSerializer,
+                          UserSerializer, VerificationSerializer)
+
 
 # -------------------- HOME --------------------
 def home(request):
@@ -38,9 +31,9 @@ class ProfileList(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        from django.utils import timezone
         from django.db.models import Q
-        
+        from django.utils import timezone
+
         # Get exact atomic time
         now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
         current_date = now.date()
@@ -62,6 +55,7 @@ class ProfileDetail(generics.RetrieveUpdateAPIView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
+        from django.db.models import Q
         from django.utils import timezone
         from django.db.models import Q
         now = timezone.localtime() if timezone.is_aware(timezone.now()) else timezone.now()
@@ -93,6 +87,7 @@ class ServiceList(generics.ListCreateAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
+        from django.db.models import Q
         from django.utils import timezone
         from django.db.models import Q
         
@@ -109,7 +104,24 @@ class ServiceList(generics.ListCreateAPIView):
             Q(date=current_date, end_time__lt=current_time)
         ).update(is_active=False)
 
-        return Service.objects.filter(is_active=True).distinct()
+        # Base active services
+        queryset = Service.objects.filter(is_active=True)
+
+        if self.request.user.is_authenticated:
+            try:
+                profile = Profile.objects.get(user=self.request.user)
+                return queryset.filter(
+                    Q(provider=profile) | 
+                    Q(provider__availability__is_active=True, provider__availability__date__gte=current_date)
+                ).distinct()
+            except Profile.DoesNotExist:
+                pass
+
+        # Return services where the provider has at least one active availability slot natively
+        return queryset.filter(
+            provider__availability__is_active=True,
+            provider__availability__date__gte=current_date
+        ).distinct()
 
 class ServiceDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
@@ -152,6 +164,25 @@ class BookingList(generics.ListCreateAPIView):
 
         if end_time <= start_time:
             raise ValidationError({"error": "end_time must be after booking_date."})
+
+        # --- Strict Availability Check ---
+        req_date = start_time.date()
+        req_start_time = start_time.time()
+        req_end_time = end_time.time()
+
+        has_availability = Availability.objects.filter(
+            provider=service.provider,
+            is_active=True,
+            date=req_date,
+            start_time__lte=req_start_time,
+            end_time__gte=req_end_time
+        ).exists()
+
+        if not has_availability:
+            raise ValidationError(
+                {"error": "This companion is not available during the requested time slot. Please check their availability calendar."}
+            )
+        # ---------------------------------
 
         # Check for overlapping bookings for this provider
         # Overlap condition:
@@ -290,6 +321,14 @@ class AvailabilityList(generics.ListCreateAPIView):
 
     def get_queryset(self):
         profile = Profile.objects.get(user=self.request.user)
+        provider_id = self.request.query_params.get('provider_id')
+        
+        # If looking up a specific provider's schedule (e.g., Client viewing a service)
+        if provider_id:
+            from django.utils import timezone
+            return Availability.objects.filter(provider_id=provider_id, is_active=True, date__gte=timezone.now().date()).order_by('date', 'start_time')
+            
+        # Default: return current user's schedule
         return Availability.objects.filter(provider=profile)
 
 class AvailabilityDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -537,6 +576,13 @@ class LoginView(APIView):
             if (user.is_superuser or user.is_staff) and profile.role != "admin":
                 profile.role = "admin"
                 profile.save()
+
+            # Prevent login if the user is a client/provider and not KYC verified
+            if profile.role in ['client', 'provider'] and not profile.is_verified:
+                return Response(
+                    {'error': 'Your account is pending KYC verification by an administrator. Please wait for approval.'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
             refresh = RefreshToken.for_user(user)
 

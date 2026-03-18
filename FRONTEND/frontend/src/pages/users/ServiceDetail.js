@@ -9,6 +9,7 @@ function ServiceDetail() {
   const { serviceId } = useParams();
   const navigate = useNavigate();
   const [service, setService] = useState(null);
+  const [availabilities, setAvailabilities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -26,6 +27,16 @@ function ServiceDetail() {
       try {
         const res = await API.get(`/services/${serviceId}/`);
         setService(res.data);
+
+        // Fetch provider availability
+        if (res.data.provider && res.data.provider.id) {
+          try {
+            const availRes = await API.get(`/availability/?provider_id=${res.data.provider.id}`);
+            setAvailabilities(availRes.data);
+          } catch(e) {
+            console.error("Failed to load availability", e);
+          }
+        }
       } catch (err) {
         console.error("Failed to load service detail", err);
         setError("Unable to load this companion. Please try again.");
@@ -291,6 +302,26 @@ function ServiceDetail() {
               }}
             >
               <h2 style={{ marginBottom: "16px" }}>Book this companion</h2>
+              
+              <div style={{ marginBottom: "20px", padding: "16px", background: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                <h3 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "8px", color: "#334155", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>📅</span> Active Schedule
+                </h3>
+                {availabilities.length > 0 ? (
+                  <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "13px", color: "#475569", lineHeight: "1.6" }}>
+                    {availabilities.map((a) => (
+                      <li key={a.id}>
+                        <strong style={{ color: "#0f172a" }}>{a.date}</strong>: {a.start_time.slice(0,5)} to {a.end_time.slice(0,5)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{ fontSize: "13px", color: "#ef4444", margin: 0, fontWeight: "500" }}>
+                    No availability listed. Bookings are likely to be blocked.
+                  </p>
+                )}
+              </div>
+
               <form onSubmit={handleBook} style={{ display: "grid", gap: 12 }}>
                 <div>
                   <label style={labelStyle}>Date</label>

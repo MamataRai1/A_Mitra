@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function SearchPanel({ filters, onChange, onSubmit }) {
+function SearchPanel({ filters, onChange, onSubmit, categories = [] }) {
   const [localSearch, setLocalSearch] = useState(filters?.search || "");
   const [localType, setLocalType] = useState(filters?.serviceType || "");
 
@@ -36,14 +36,9 @@ function SearchPanel({ filters, onChange, onSubmit }) {
           style={input}
         >
           <option value="">Any Service Type</option>
-          <option value="friend">Friend / Chat</option>
-          <option value="event">Event Partner</option>
-          <option value="travel">Travel Companion</option>
-          <option value="study date">Study Date</option>
-          <option value="movie">Movie Date</option>
-          <option value="picnic">Picnic</option>
-          <option value="restaurant">Dinner / Restaurant</option>
-          <option value="gaming">Gaming Buddy</option>
+          {categories.map((cat, idx) => (
+            <option key={idx} value={cat.toLowerCase()}>{cat}</option>
+          ))}
         </select>
 
         <button onClick={handleSearchClick} style={searchBtn}>Search</button>

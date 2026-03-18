@@ -24,6 +24,8 @@ import AdminPaymentsSection from './AdminPaymentsSection';
 import AdminAnalyticsSection from './AdminAnalyticsSection';
 import AdminMapSection from './AdminMapSection'; // Map import
 import AdminUserProfileModal from './AdminUserProfileModal';
+import AdminServicesSection from './AdminServicesSection';
+import { FiBriefcase } from 'react-icons/fi';
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
@@ -35,6 +37,8 @@ const AdminDashboard = () => {
     const [bookings, setBookings] = useState([]);
     const [payments, setPayments] = useState([]);
     const [reports, setReports] = useState([]);
+    const [services, setServices] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProfile, setSelectedProfile] = useState(null);
 
@@ -56,12 +60,16 @@ const AdminDashboard = () => {
                     bookingsRes,
                     paymentsRes,
                     reportsRes,
+                    servicesRes,
+                    settingsRes,
                 ] = await Promise.all([
                     API.get('/admin/pending-kyc/'),
                     API.get('/profiles/'),
                     API.get('/bookings/'),
                     API.get('/payments/'),
                     API.get('/reports/'),
+                    API.get('/services/'),
+                    API.get('/settings/').catch(() => ({ data: [] })),
                 ]);
 
                 setPendingUsers(kycRes.data || []);
@@ -69,6 +77,17 @@ const AdminDashboard = () => {
                 setBookings(bookingsRes.data || []);
                 setPayments(paymentsRes.data || []);
                 setReports(reportsRes.data || []);
+                setServices(servicesRes.data || []);
+
+                const catSetting = (settingsRes.data || []).find((s) => s.key === "service_categories");
+                if (catSetting && catSetting.value) {
+                    setCategories(catSetting.value);
+                } else {
+                    setCategories([
+                        "Friend / Chat", "Event Partner", "Travel Companion",
+                        "Study Date", "Movie Date", "Picnic", "Dinner / Restaurant", "Gaming Buddy"
+                    ]);
+                }
             } catch (err) {
                 console.error("Failed to fetch admin dashboard data:", err);
                 if (err.response && err.response.status === 401) {
@@ -181,6 +200,12 @@ const AdminDashboard = () => {
                         onClick={() => setActiveTab('manage_users')}
                     />
                     <SidebarItem
+                        icon={<FiBriefcase />}
+                        label="Manage Services"
+                        active={activeTab === 'services'}
+                        onClick={() => setActiveTab('services')}
+                    />
+                    <SidebarItem
                         icon={<FiCalendar />}
                         label="Bookings"
                         active={activeTab === 'bookings'}
@@ -227,7 +252,7 @@ const AdminDashboard = () => {
             <main className="flex-1 ml-64 p-10 overflow-y-auto">
                 <header className="flex justify-between items-center mb-10">
                     <div>
-                        <h1 className="text-3xl font-black tracking-tight">Command Center</h1>
+                        {/* <h1 className="text-3xl font-black tracking-tight">Command Center</h1> */}
                         <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Monitoring platform safety & identity verification.</p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -277,6 +302,16 @@ const AdminDashboard = () => {
                         onToggleSuspend={(userId, isSuspended) =>
                             handleAction(userId, isSuspended ? 'unsuspend' : 'suspend')
                         }
+                    />
+                )}
+
+                {activeTab === 'services' && (
+                    <AdminServicesSection
+                        isDark={isDark}
+                        services={services}
+                        providers={allUsers.filter(u => u.role === 'provider')}
+                        categories={categories}
+                        setServices={setServices}
                     />
                 )}
 

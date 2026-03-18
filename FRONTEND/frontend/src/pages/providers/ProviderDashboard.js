@@ -11,6 +11,7 @@ function ProviderDashboard() {
 
   const [profile, setProfile] = useState(null);
   const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [payments, setPayments] = useState([]);
   const [availability, setAvailability] = useState([]);
@@ -78,6 +79,7 @@ function ProviderDashboard() {
           availabilityRes,
           alertsPanelRes,
           locationsRes,
+          settingsRes,
         ] = await Promise.all([
           API.get("/bookings/"),
           API.get("/payments/"),
@@ -86,6 +88,7 @@ function ProviderDashboard() {
           API.get("/availability/"),
           API.get("/alerts/panel/"),
           API.get("/locations/"),
+          API.get("/settings/").catch(() => ({ data: [] })),
         ]);
 
         const allBookings = bookingsRes.data || [];
@@ -118,6 +121,13 @@ function ProviderDashboard() {
         setReportsReceived(alertsPanelRes.data?.received_reports || []);
         setReviews(alertsPanelRes.data?.reviews || []);
         setLocations(locationsRes.data || []);
+        
+        const catSetting = (settingsRes.data || []).find((s) => s.key === "service_categories");
+        if (catSetting && catSetting.value) {
+          setCategories(catSetting.value);
+        } else {
+          setCategories(["Friend / Chat", "Event Partner", "Travel Companion", "Study Date", "Movie Date", "Picnic", "Dinner / Restaurant", "Gaming Buddy"]);
+        }
       } catch (err) {
         console.error("Failed to load provider dashboard data", err);
         setError(
@@ -147,11 +157,11 @@ function ProviderDashboard() {
 
         const next = res.data;
         // If counts increased compared to last time, show a small toast
-        if (alertSummary) {
+        if (alertSummary && next) {
           const hadNewBooking =
-            (next.upcoming_bookings || 0) > (alertSummary.upcoming_bookings || 0);
+            (next?.upcoming_bookings || 0) > (alertSummary?.upcoming_bookings || 0);
           const hadNewReport =
-            (next.unresolved_reports || 0) > (alertSummary.unresolved_reports || 0);
+            (next?.unresolved_reports || 0) > (alertSummary?.unresolved_reports || 0);
 
           if (hadNewBooking) {
             setAlertToast("You have new or updated bookings.");
@@ -220,11 +230,25 @@ function ProviderDashboard() {
     if (!profileId) return;
     setSavingService(true);
     try {
+      const trimmedCat = newServiceCategory.trim();
+      let updatedCategories = categories;
+      if (trimmedCat && !categories.some(c => c.toLowerCase() === trimmedCat.toLowerCase())) {
+        updatedCategories = [...categories, trimmedCat];
+        setCategories(updatedCategories);
+        try {
+          await API.patch(`/settings/service_categories/`, { value: updatedCategories });
+        } catch(err) {
+          if (err.response && err.response.status === 404) {
+            await API.post('/settings/', { key: 'service_categories', value: updatedCategories });
+          }
+        }
+      }
+
       const res = await API.post("/services/", {
         provider_id: profileId,
         name: newServiceName,
         description: newServiceDescription,
-        category: newServiceCategory,
+        category: trimmedCat,
         price: newServicePrice || "0",
         is_active: true,
       });
@@ -872,21 +896,21 @@ function ProviderDashboard() {
                   className="px-3 py-2 rounded-xl bg-black/20 border border-white/10 outline-none md:col-span-2"
                 />
                 <div className="flex gap-2">
-                  <select
-                    value={newServiceCategory}
-                    onChange={(e) => setNewServiceCategory(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-black/20 border border-white/10 outline-none flex-1 text-white"
-                  >
-                    <option value="" disabled>Select Category</option>
-                    <option value="friend">Friend / Chat</option>
-                    <option value="event">Event Partner</option>
-                    <option value="travel">Travel Companion</option>
-                    <option value="study date">Study Date</option>
-                    <option value="movie">Movie Date</option>
-                    <option value="picnic">Picnic</option>
-                    <option value="restaurant">Dinner / Restaurant</option>
-                    <option value="gaming">Gaming Buddy</option>
-                  </select>
+                  <div className="flex-1">
+                    <input
+                      required
+                      list="category-options"
+                      value={newServiceCategory}
+                      onChange={(e) => setNewServiceCategory(e.target.value)}
+                      placeholder="Select or type category"
+                      className="px-3 py-2 rounded-xl bg-black/20 border border-white/10 outline-none w-full text-white"
+                    />
+                    <datalist id="category-options">
+                      {categories.map((cat, idx) => (
+                        <option key={idx} value={cat} />
+                      ))}
+                    </datalist>
+                  </div>
                   <input
                     type="number"
                     min="0"

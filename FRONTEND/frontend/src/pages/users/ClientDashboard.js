@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 
 function ClientDashboard() {
   const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -26,12 +27,20 @@ function ClientDashboard() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [servRes, bookRes] = await Promise.all([
+        const [servRes, bookRes, settingsRes] = await Promise.all([
           API.get("/services/"),
           // Fetch bookings for the logged-in user
-          API.get("/bookings/").catch(() => ({ data: [] }))
+          API.get("/bookings/").catch(() => ({ data: [] })),
+          API.get("/settings/").catch(() => ({ data: [] }))
         ]);
         setServices(servRes.data || []);
+
+        const catSetting = (settingsRes.data || []).find(s => s.key === 'service_categories');
+        if (catSetting && catSetting.value) {
+          setCategories(catSetting.value);
+        } else {
+          setCategories(["Friend / Chat", "Event Partner", "Travel Companion", "Study Date", "Movie Date", "Picnic", "Dinner / Restaurant", "Gaming Buddy"]);
+        }
 
         // Filter bookings to show pending/confirmed/completed ones on the dashboard
         const activeBookings = (bookRes.data || []).filter(
@@ -207,6 +216,7 @@ function ClientDashboard() {
             filters={filters}
             onChange={handleFiltersChange}
             onSubmit={handleSearchSubmit}
+            categories={categories}
           />
         </section>
 

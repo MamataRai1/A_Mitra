@@ -49,7 +49,7 @@ const AdminBookingsSection = ({ isDark, bookings }) => {
                   <td className="p-4 text-xs">{providerName}</td>
                   <td className="p-4 text-xs opacity-70">{date}</td>
                   <td className="p-4">
-                    <span className="px-3 py-1 rounded-full bg-white/10 text-[11px] font-bold capitalize">
+                    <span className="px-3 py-1 rounded-full bg-white/10 text-[11px] font-bold capitalize" >
                       {b.status}
                     </span>
                   </td>
