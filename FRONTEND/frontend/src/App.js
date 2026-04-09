@@ -16,6 +16,7 @@ import ServiceDetail from "./pages/users/ServiceDetail";
 import FavoritesPage from "./pages/users/FavoritesPage";
 import BookingsPage from "./pages/users/BookingsPage";
 import ClientProfilePage from "./pages/users/ClientProfilePage";
+import PaymentSuccess from "./pages/users/PaymentSuccess";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem('access_token');
@@ -130,6 +131,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['client', 'provider']}>
               <ClientProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/payment/success"
+          element={
+            <ProtectedRoute allowedRoles={['client', 'provider']}>
+              <PaymentSuccess />
             </ProtectedRoute>
           }
         />

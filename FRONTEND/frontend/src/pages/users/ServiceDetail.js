@@ -109,37 +109,53 @@ function ServiceDetail() {
       return setBookingMessage("Please choose a date and time.");
     }
 
-    const bookingDate = new Date(`${date}T${time}:00`);
-    const endDate = new Date(bookingDate.getTime() + (hours || 1) * 60 * 60 * 1000);
-    const totalAmount =
-      Number(service.price || 0) * Number(hours || 1 || 0);
+    const startStr = `${date}T${time}:00`;
+    const localDateObj = new Date(startStr);
+    const endObj = new Date(localDateObj.getTime() + (hours || 1) * 60 * 60 * 1000);
+    
+    const pad = n => String(n).padStart(2, '0');
+    const endStr = `${endObj.getFullYear()}-${pad(endObj.getMonth() + 1)}-${pad(endObj.getDate())}T${pad(endObj.getHours())}:${pad(endObj.getMinutes())}:00`;
+
+    const totalAmount = Number(service.price || 0) * Number(hours || 1 || 0);
 
     setBookingLoading(true);
     setBookingMessage("");
 
     try {
-      // 1. Create booking (Send exact datetime boundaries for conflict checking)
+      // 1. Create booking (Send exact datetime boundaries natively without UTC shifting)
       const bookingRes = await API.post("/bookings/", {
         client_id: profileId,
         service_id: service.id,
-        booking_date: bookingDate.toISOString(),
-        end_time: endDate.toISOString(),
+        booking_date: startStr,
+        end_time: endStr,
       });
 
-      // 2. Create payment linked to booking
-      await API.post("/payments/", {
-        booking_id: bookingRes.data.id,
-        amount: totalAmount,
-        method,
-      });
+      if (method === "khalti") {
+        setBookingMessage("Initiating Khalti Checkout...");
+        try {
+          const res = await API.post("/payment/initiate/", {
+             amount: totalAmount
+          });
+          if (res.data && res.data.payment_url) {
+              window.location.href = res.data.payment_url;
+              return; // Exit here, let the browser redirect
+          }
+        } catch (khaltiErr) {
+          // Rollback the pending booking
+          await API.delete(`/bookings/${bookingRes.data.id}/`).catch(() => {});
+          throw khaltiErr; // Propagate to outer catch to display error
+        }
+      } else {
+        // 2. Note: Cash payments are handled implicitly by completing the booking now.
 
-      setBookingMessage(
-        `Booking confirmed for ${hours} hour(s). Redirecting to your bookings...`
-      );
+        setBookingMessage(
+          `Booking confirmed for ${hours} hour(s). Redirecting to your bookings...`
+        );
 
-      setTimeout(() => {
-        navigate('/bookings');
-      }, 1500);
+        setTimeout(() => {
+          navigate('/bookings');
+        }, 1500);
+      }
 
     } catch (err) {
       console.error("Booking or payment failed", err);

@@ -1,9 +1,9 @@
 import React from 'react';
 
 const AdminPaymentsSection = ({ isDark, payments, onRefund }) => {
-  const completed = payments.filter((p) => p.status === 'completed');
-  const refunded = payments.filter((p) => p.status === 'refunded');
-  const pending = payments.filter((p) => p.status === 'pending');
+  const completed = payments.filter((p) => p.status?.toLowerCase() === 'completed');
+  const refunded = payments.filter((p) => p.status?.toLowerCase() === 'refunded');
+  const pending = payments.filter((p) => p.status?.toLowerCase() === 'pending');
 
   const totalCompleted = completed
     .reduce((sum, p) => sum + Number(p.amount || 0), 0)
@@ -84,11 +84,11 @@ const AdminPaymentsSection = ({ isDark, payments, onRefund }) => {
                   <td className="p-4 text-xs capitalize">{p.method}</td>
                   <td className="p-4">
                     <span
-                      className={`px-3 py-1 rounded-full text-[11px] font-bold capitalize ${p.status === 'completed'
+                      className={`px-3 py-1 rounded-full text-[11px] font-bold capitalize ${p.status?.toLowerCase() === 'completed'
                         ? 'bg-emerald-500/10 text-emerald-400'
-                        : p.status === 'refunded'
+                        : p.status?.toLowerCase() === 'refunded'
                           ? 'bg-amber-500/10 text-amber-500'
-                          : p.status === 'pending'
+                          : p.status?.toLowerCase() === 'pending'
                             ? 'bg-indigo-500/10 text-indigo-400'
                             : 'bg-white/10'
                         }`}
@@ -97,7 +97,7 @@ const AdminPaymentsSection = ({ isDark, payments, onRefund }) => {
                     </span>
                   </td>
                   <td className="p-4 text-right">
-                    {p.status === 'completed' && (
+                    {p.status?.toLowerCase() === 'completed' && (
                       <button
                         onClick={() => {
                           if (window.confirm('Are you sure you want to refund this payment?')) {

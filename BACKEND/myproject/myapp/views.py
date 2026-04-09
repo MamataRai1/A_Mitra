@@ -10,15 +10,16 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import (Availability, Booking, Favorite, LocationLog, Message,
-                     Notification, Payment, Profile, Report, Review, Service,
+                     Notification, Profile, Report, Review, Service,
                      SystemSetting, Verification)
 from .serializers import (AvailabilitySerializer, BookingSerializer,
                           FavoriteSerializer, LocationLogSerializer,
-                          MessageSerializer, PaymentSerializer,
-                          ProfileSerializer, RegisterSerializer,
+                          MessageSerializer, ProfileSerializer, RegisterSerializer,
                           ReportSerializer, ReviewSerializer,
                           ServiceSerializer, SystemSettingSerializer,
                           UserSerializer, VerificationSerializer)
+
+
 
 
 # -------------------- HOME --------------------
@@ -162,17 +163,36 @@ class BookingList(generics.ListCreateAPIView):
             raise ValidationError({"error": "end_time must be after booking_date."})
 
         # --- Strict Availability Check ---
-        req_date = start_time.date()
-        req_start_time = start_time.time()
-        req_end_time = end_time.time()
+        from django.utils import timezone
+        local_start = timezone.localtime(start_time) if timezone.is_aware(start_time) else start_time
+        local_end = timezone.localtime(end_time) if timezone.is_aware(end_time) else end_time
 
-        has_availability = Availability.objects.filter(
+        import datetime
+
+        req_date = local_start.date()
+        yesterday = req_date - datetime.timedelta(days=1)
+        
+        availabilities = Availability.objects.filter(
             provider=service.provider,
             is_active=True,
-            date=req_date,
-            start_time__lte=req_start_time,
-            end_time__gte=req_end_time
-        ).exists()
+            date__in=[req_date, yesterday]
+        )
+
+        has_availability = False
+        for a in availabilities:
+            # Create absolute datetime for start and end of this availability slot
+            slot_start_dt = timezone.make_aware(datetime.datetime.combine(a.date, a.start_time))
+            
+            if a.start_time <= a.end_time:
+                slot_end_dt = timezone.make_aware(datetime.datetime.combine(a.date, a.end_time))
+            else:
+                # Overnight shift -> end time is on the NEXT day
+                next_day = a.date + datetime.timedelta(days=1)
+                slot_end_dt = timezone.make_aware(datetime.datetime.combine(next_day, a.end_time))
+            
+            if slot_start_dt <= local_start and slot_end_dt >= local_end:
+                has_availability = True
+                break
 
         if not has_availability:
             raise ValidationError(
@@ -201,10 +221,20 @@ class BookingList(generics.ListCreateAPIView):
 
         serializer.save(client=profile)
 
-class BookingDetail(generics.RetrieveUpdateAPIView):
-    queryset = Booking.objects.all()
+class BookingDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        profile = Profile.objects.get(user=self.request.user)
+
+        if profile.role == "client":
+            return Booking.objects.filter(client=profile)
+
+        if profile.role == "provider":
+            return Booking.objects.filter(service__provider=profile)
+
+        return Booking.objects.all()
 
     def perform_update(self, serializer):
         # Store original status before saving
@@ -237,17 +267,7 @@ class BookingDetail(generics.RetrieveUpdateAPIView):
                     recipient=updated_booking.client,
                     title="Service Completed",
                     message=f"Your session for '{service_name}' is complete. Please leave a review!"
-                )
-                from django.utils import timezone
-                Payment.objects.update_or_create(
-                    booking=updated_booking,
-                    defaults={
-                        'amount': updated_booking.service.price,
-                        'method': 'cash',
-                        'status': 'completed',
-                        'paid_at': timezone.now()
-                    }
-                )
+                 )
 
 # -------------------- Reviews --------------------
 class ReviewList(generics.ListCreateAPIView):
@@ -298,17 +318,6 @@ class ReportDetail(generics.RetrieveUpdateAPIView):
     serializer_class = ReportSerializer
     # Only admins should change report status / notes
     permission_classes = [permissions.IsAdminUser]
-
-# -------------------- Payments --------------------
-class PaymentList(generics.ListCreateAPIView):
-    queryset = Payment.objects.all()
-    serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-class PaymentDetail(generics.RetrieveUpdateAPIView):
-    queryset = Payment.objects.all()
-    serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
 # -------------------- Availability --------------------
 class AvailabilityList(generics.ListCreateAPIView):
@@ -663,3 +672,4 @@ class SystemSettingDetail(generics.RetrieveUpdateDestroyAPIView):
     
     # Optionally allow lookup by 'key'
     lookup_field = 'key'
+

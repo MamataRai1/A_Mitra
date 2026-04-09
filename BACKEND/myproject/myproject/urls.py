@@ -24,6 +24,7 @@ urlpatterns = [
 
     # API Routes
     path('api/', include('myapp.urls')),
+    path('api/payment/', include('payments.urls')),
 
     # Home API Test Page
     path('', home, name='home'),

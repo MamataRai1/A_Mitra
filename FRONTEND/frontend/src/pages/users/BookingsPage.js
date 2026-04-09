@@ -36,8 +36,45 @@ function BookingsPage() {
         setLoading(false);
       }
     };
+
+    const verifyKhaltiPayment = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const pidx = urlParams.get("pidx");
+      if (pidx) {
+        try {
+          // Verify with Backend
+          const res = await API.post("/khalti/verify/", { pidx });
+          if (res.data && res.data.message) {
+            alert(`Payment Successful: ${res.data.message}`);
+          }
+          // Remove query params to clean URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (err) {
+          console.error("Payment verification failed", err);
+          alert("Payment verification failed. Please contact support.");
+        }
+      }
+    };
+
+    verifyKhaltiPayment();
     loadBookings();
   }, []);
+
+  const handleKhaltiPayment = async (bookingId) => {
+    try {
+      const returnUrl = window.location.href; // Khalti redirects back here
+      const res = await API.post("/khalti/initiate/", {
+        booking_id: bookingId,
+        return_url: returnUrl
+      });
+      if (res.data && res.data.payment_url) {
+        window.location.href = res.data.payment_url;
+      }
+    } catch (err) {
+      console.error("Payment initiation failed", err);
+      alert("Could not start payment. Please try again.");
+    }
+  };
 
   const openReport = (booking) => {
     setReportTarget(booking);
@@ -275,6 +312,16 @@ function BookingsPage() {
                         className="px-6 py-2.5 rounded-full bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white font-bold text-sm transition-all shadow-lg shadow-blue-500/10 mb-2"
                       >
                         Mark as Completed
+                      </button>
+                    )}
+
+                    {role === "client" && booking.status === "confirmed" && (
+                      <button
+                        type="button"
+                        onClick={() => handleKhaltiPayment(booking.id)}
+                        className="px-6 py-2.5 rounded-full bg-purple-500/10 text-purple-600 hover:bg-purple-600 hover:text-white font-bold text-sm transition-all shadow-lg shadow-purple-500/10"
+                      >
+                        💜 Pay with Khalti
                       </button>
                     )}
 

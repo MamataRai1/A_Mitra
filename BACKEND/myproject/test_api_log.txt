@@ -4,3 +4,6 @@ Service ID: 4 - dfgfhggjg
 Provider: provider12 | Status: offline
 Availability Slots: 1
   Date: 2026-03-08 to 14:57:00 (Active: True)
+--- FAILURE LOG ---
+Requested: date=2026-04-07, start=14:42:00, end=15:42:00, provider=6
+  DB Avail: date=2026-04-07, start=14:08:00, end=02:09:00, is_active=True

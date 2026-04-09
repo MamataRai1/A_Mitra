@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import (
-    Profile, Service, Booking, Review, Report, Payment,
+    Profile, Service, Booking, Review, Report,
     Availability, Favorite, Message, Verification, LocationLog, SystemSetting
 )
 from django.db.models import Avg
@@ -256,20 +256,6 @@ class ReportSerializer(serializers.ModelSerializer):
             'created_at',
         ]
 
-
-# -------------------- Payment Serializer --------------------
-class PaymentSerializer(serializers.ModelSerializer):
-    booking = BookingSerializer(read_only=True)
-
-    booking_id = serializers.PrimaryKeyRelatedField(
-        queryset=Booking.objects.all(),
-        source="booking",
-        write_only=True
-    )
-
-    class Meta:
-        model = Payment
-        fields = ['id', 'booking', 'booking_id', 'amount', 'method', 'status', 'paid_at']
 
 
 # -------------------- Availability Serializer --------------------

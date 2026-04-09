@@ -35,10 +35,10 @@ const AdminDashboard = () => {
     const [pendingUsers, setPendingUsers] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
     const [bookings, setBookings] = useState([]);
-    const [payments, setPayments] = useState([]);
     const [reports, setReports] = useState([]);
     const [services, setServices] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedProfile, setSelectedProfile] = useState(null);
 
@@ -58,26 +58,26 @@ const AdminDashboard = () => {
                     kycRes,
                     usersRes,
                     bookingsRes,
-                    paymentsRes,
                     reportsRes,
                     servicesRes,
+                    paymentsRes,
                     settingsRes,
                 ] = await Promise.all([
                     API.get('/admin/pending-kyc/'),
                     API.get('/profiles/'),
                     API.get('/bookings/'),
-                    API.get('/payments/'),
                     API.get('/reports/'),
                     API.get('/services/'),
+                    API.get('/payment/').catch(() => ({ data: [] })),
                     API.get('/settings/').catch(() => ({ data: [] })),
                 ]);
 
                 setPendingUsers(kycRes.data || []);
                 setAllUsers(usersRes.data || []);
                 setBookings(bookingsRes.data || []);
-                setPayments(paymentsRes.data || []);
                 setReports(reportsRes.data || []);
                 setServices(servicesRes.data || []);
+                setPayments(paymentsRes.data || []);
 
                 const catSetting = (settingsRes.data || []).find((s) => s.key === "service_categories");
                 if (catSetting && catSetting.value) {
@@ -140,24 +140,16 @@ const AdminDashboard = () => {
     };
 
     const handleRefund = async (paymentId) => {
-        try {
-            const res = await API.patch(`/payments/${paymentId}/`, { status: 'refunded' });
-            setPayments(prev =>
-                prev.map(p => (p.id === paymentId ? { ...p, ...res.data } : p))
-            );
-        } catch (err) {
-            alert("Could not process refund.");
-            console.error(err);
-        }
+        alert("Payment operations are temporarily disabled.");
     };
 
     const totalUsers = allUsers.length;
     const totalProviders = allUsers.filter(u => u.role === 'provider').length;
     const totalClients = allUsers.filter(u => u.role === 'client').length;
     const totalBookings = bookings.length;
-    const totalRevenue = payments
-        .filter(p => p.status === 'completed' || p.status === 'pending')
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    const totalRevenue = bookings
+        .filter(b => b.status === 'completed')
+        .reduce((sum, b) => sum + Number(b.service?.price || 0), 0)
         .toFixed(2);
     const pendingReports = reports.filter(r => r.status === 'pending').length;
 

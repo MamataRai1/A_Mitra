@@ -153,35 +153,6 @@ class Report(models.Model):
         return f"Report: {self.reporter.user.username} → {self.reported_user.user.username} (Action: {self.action_taken})"
 
 
-# -------------------- Payment --------------------
-class Payment(models.Model):
-    METHOD_CHOICES = (
-        ('khalti', 'Khalti'),
-        ('esewa', 'eSewa'),
-        ('cash', 'Cash'),
-    )
-
-    STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-        ('refunded', 'Refunded'),
-    )
-
-    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='payment')
-
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-
-    method = models.CharField(max_length=20, choices=METHOD_CHOICES, default='cash')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-
-    transaction_id = models.CharField(max_length=255, blank=True, null=True)
-
-    paid_at = models.DateTimeField(blank=True, null=True)
-
-    def __str__(self):
-        return f"Payment {self.amount} - {self.booking.service.name}"
-
 
 # -------------------- Provider Availability --------------------
 class Availability(models.Model):

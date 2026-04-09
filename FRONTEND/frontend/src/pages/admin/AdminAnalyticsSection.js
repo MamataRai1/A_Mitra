@@ -17,9 +17,9 @@ const AdminAnalyticsSection = ({
   const labelClass = 'text-[10px] font-black uppercase tracking-[0.22em] opacity-60 mb-1';
 
   // --- REVENUE CALCS ---
-  const completedStats = payments.filter((p) => p.status === 'completed');
-  const pendingStats = payments.filter((p) => p.status === 'pending');
-  const refundedStats = payments.filter((p) => p.status === 'refunded');
+  const completedStats = payments.filter((p) => p.status?.toLowerCase() === 'completed');
+  const pendingStats = payments.filter((p) => p.status?.toLowerCase() === 'pending');
+  const refundedStats = payments.filter((p) => p.status?.toLowerCase() === 'refunded');
 
   const sumCompleted = completedStats.reduce((acc, p) => acc + Number(p.amount || 0), 0);
   const sumPending = pendingStats.reduce((acc, p) => acc + Number(p.amount || 0), 0);

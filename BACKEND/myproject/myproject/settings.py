@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'drf_yasg',
-
+    'payments',
 ]
 
 MIDDLEWARE = [
@@ -143,4 +143,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3001",
     "http://127.0.0.1:3001",
 ]
- 
+ # trigger reload
+# reload again
+# load new keys
+# updated URL to sandbox
+# final admin payments reload

@@ -28,10 +28,6 @@ urlpatterns = [
     path('reports/', views.ReportList.as_view(), name='report-list'),
     path('reports/<int:pk>/', views.ReportDetail.as_view(), name='report-detail'),
 
-    # -------------------- Payments --------------------
-    path('payments/', views.PaymentList.as_view(), name='payment-list'),
-    path('payments/<int:pk>/', views.PaymentDetail.as_view(), name='payment-detail'),
-
     # -------------------- Provider Availability --------------------
     path('availability/', views.AvailabilityList.as_view(), name='availability-list'),
     path('availability/<int:pk>/', views.AvailabilityDetail.as_view(), name='availability-detail'),

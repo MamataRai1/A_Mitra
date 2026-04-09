@@ -13,7 +13,6 @@ function ProviderDashboard() {
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [bookings, setBookings] = useState([]);
-  const [payments, setPayments] = useState([]);
   const [availability, setAvailability] = useState([]);
   const [reports, setReports] = useState([]); // reports I filed
   const [reportsReceived, setReportsReceived] = useState([]); // reports about me
@@ -73,7 +72,6 @@ function ProviderDashboard() {
       try {
         const [
           bookingsRes,
-          paymentsRes,
           servicesRes,
           profileRes,
           availabilityRes,
@@ -82,7 +80,6 @@ function ProviderDashboard() {
           settingsRes,
         ] = await Promise.all([
           API.get("/bookings/"),
-          API.get("/payments/"),
           API.get("/services/"),
           API.get(`/profiles/${profileId}/`),
           API.get("/availability/"),
@@ -92,7 +89,6 @@ function ProviderDashboard() {
         ]);
 
         const allBookings = bookingsRes.data || [];
-        const allPayments = paymentsRes.data || [];
         const allServices = servicesRes.data || [];
 
         const myServices = allServices.filter(
@@ -104,17 +100,8 @@ function ProviderDashboard() {
             b.service.provider &&
             String(b.service.provider.id) === String(profileId)
         );
-        const myPayments = allPayments.filter(
-          (p) =>
-            p.booking &&
-            p.booking.service &&
-            p.booking.service.provider &&
-            String(p.booking.service.provider.id) === String(profileId)
-        );
-
         setServices(myServices);
         setBookings(myBookings);
-        setPayments(myPayments);
         setProfile(profileRes.data);
         setAvailability(availabilityRes.data || []);
         setReports(alertsPanelRes.data?.sent_reports || []);
@@ -209,9 +196,8 @@ function ProviderDashboard() {
     (b) => b.status === "pending" || b.status === "confirmed"
   );
   const completedBookings = bookings.filter((b) => b.status === "completed");
-  const totalEarnings = payments
-    .filter((p) => p.status === "completed")
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0)
+  const totalEarnings = completedBookings
+    .reduce((sum, b) => sum + Number(b.service?.price || 0), 0)
     .toFixed(2);
 
   const handleLogout = () => {
@@ -316,16 +302,7 @@ function ProviderDashboard() {
       );
       if (newStatus === "completed") {
         const targetBooking = bookings.find((b) => b.id === bookingId);
-        if (targetBooking?.service?.price) {
-          const newPaymentLocal = {
-            id: Date.now(),
-            booking: { id: bookingId, service: targetBooking.service },
-            amount: targetBooking.service.price,
-            method: "cash",
-            status: "completed",
-          };
-          setPayments((prev) => [newPaymentLocal, ...prev]);
-        }
+
       }
 
       setAlertToast(`Booking ${newStatus} successfully.`);
@@ -1077,38 +1054,37 @@ function ProviderDashboard() {
                 <p className="text-base font-bold">
                   Total: <span className="text-sky-400">NPR {totalEarnings}</span>
                 </p>
-                {payments
-                  .filter((p) => p.status === "completed")
+                {completedBookings
                   .slice(0, 10)
-                  .map((p) => (
+                  .map((b) => (
                     <div
-                      key={p.id}
+                      key={b.id}
                       className={`flex justify-between rounded-2xl px-3 py-2 ${isDark ? "bg-white/5" : "bg-gray-50"
                         }`}
                     >
                       <div>
                         <p className="font-semibold">
-                          {p.booking?.service?.name || "Service"}
+                          {b.service?.name || "Service"}
                         </p>
                         <p className="text-[11px] opacity-70">
-                          Booking ID #{p.booking?.id} • Method {p.method}
+                          Booking ID #{b.id}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-emerald-400">
-                          + NPR {p.amount}
+                          + NPR {b.service?.price || 0}
                         </p>
                         <p className="text-[11px] opacity-60 capitalize">
-                          {p.status}
+                          {b.status}
                         </p>
                       </div>
                     </div>
                   ))}
-                {payments.filter((p) => p.status === "completed").length ===
+                {completedBookings.length ===
                   0 && (
                     <p className="text-xs opacity-70">
-                      No completed payments yet. Once bookings are finished and
-                      marked as paid, they’ll show here.
+                      No completed sessions yet. Once bookings are finished,
+                      their earnings will show here.
                     </p>
                   )}
               </div>

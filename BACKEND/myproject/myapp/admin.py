@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Profile, Verification, Service, Booking, Review,
-    Report, LocationLog, Payment, Availability,
+    Report, LocationLog, Availability,
     Favorite, Message
 )
 
@@ -58,12 +58,6 @@ class LocationLogAdmin(admin.ModelAdmin):
     list_display = ("profile", "latitude", "longitude", "logged_at")
     list_filter = ("logged_at",)
 
-
-# -------------------- Payment Admin --------------------
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("booking", "amount", "method", "status", "paid_at")
-    list_filter = ("method", "status")
 
 
 # -------------------- Availability Admin --------------------
